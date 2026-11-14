@@ -1,0 +1,6 @@
+apiVersion: v2
+name: qarr
+description: QR codes with your own content, colours and logo, generated in your browser.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

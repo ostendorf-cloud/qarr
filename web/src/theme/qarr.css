@@ -1,0 +1,56 @@
+/*
+ * qarr: a neutral placeholder theme.
+ *
+ * qarr's own brand palette is still open; this fills govue's token contract
+ * with a readable, WCAG 2.2 AA checked palette so the app is usable before
+ * one is chosen, not a decision about what qarr should look like.
+ *
+ * The neutral ramp sits on hue 215 (slate blue), the accent and the focus
+ * ring on hue 165 (teal), both round HSL coordinates chosen clear of
+ * govue's own committed hues: 310/280 in base.css, 288/332 in sample.css,
+ * 300/282 in sample-contrast.css. The four semantic roles (success, warning,
+ * danger, info) reuse govue's own values verbatim: those are shared
+ * signals, not a brand hue, so there is nothing to diversify there.
+ * qarr.theme.test.ts checks every pair against the same WCAG 2.2 AA
+ * minimums govue's own contrast.test.ts enforces.
+ */
+
+:root[data-theme='qarr'] {
+  --color-bg: light-dark(#dee4ed, #18222f);
+  --color-bg-subtle: light-dark(#d5dce7, #1e2938);
+  --color-surface: light-dark(#ffffff, #263140);
+  --color-surface-hover: light-dark(#e4eaf1, #2f3b4c);
+  --color-overlay: light-dark(rgb(24 34 47 / 0.45), rgb(10 14 20 / 0.68));
+
+  --color-border: light-dark(#bcc5d2, #434f60);
+  --color-border-strong: light-dark(#60728a, #8591a3);
+
+  --color-text: light-dark(#1c2b3f, #dbe4f0);
+  --color-text-muted: light-dark(#485870, #afbaca);
+  --color-text-faint: light-dark(#546378, #9aa6b6);
+
+  --color-accent: light-dark(#27866f, #7dd4be);
+  --color-accent-text: light-dark(#176d58, #a0e3d3);
+  --color-accent-strong: light-dark(#176d58, #94dbc9);
+  --color-accent-strong-hover: light-dark(#105644, #b8eade);
+  --color-accent-on: light-dark(#ffffff, #0e392e);
+  --color-accent-subtle: light-dark(#d3eee7, #24423b);
+  --color-focus: light-dark(#0f8a6b, #7ef1d4);
+
+  --color-success-text: light-dark(#126821, #70db7e);
+  --color-success-subtle: light-dark(#d6f0d9, #1a3d20);
+  --color-warning-text: light-dark(#6e5e0c, #f0d342);
+  --color-warning-subtle: light-dark(#f5edc7, #373215);
+  --color-danger-text: light-dark(#962f17, #f68379);
+  --color-danger-subtle: light-dark(#f8dbd8, #431d19);
+  --color-danger-strong: light-dark(#962f17, #f68379);
+  --color-danger-strong-hover: light-dark(#75180f, #fbc6c1);
+  --color-danger-on: light-dark(#ffffff, #44201d);
+  --color-info-text: light-dark(#0e6281, #5abff2);
+  --color-info-subtle: light-dark(#d1e9f5, #17393f);
+
+  --shadow-card: 0 1px 2px light-dark(rgb(24 34 47 / 0.07), rgb(0 0 0 / 0.52));
+  --shadow-dialog:
+    0 10px 30px -12px light-dark(rgb(24 34 47 / 0.26), rgb(0 0 0 / 0.78)),
+    0 2px 6px light-dark(rgb(24 34 47 / 0.09), rgb(0 0 0 / 0.52));
+}
