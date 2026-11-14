@@ -49,15 +49,53 @@ origin, which is what keeps the canvas that draws it untainted. An HTTP API is a
 for scripts and batch runs, entirely separate from the page, and needs a key: the page itself
 calls no API, so the API can require one from every caller without exception.
 
+## Encoding and decoding a QR code
+
+`web/src/qr` encodes a free text payload, draws it on a plain RGBA buffer with the user's own
+colours, module shape and an optional logo, and decodes that same buffer again before the page
+shows it. All of it runs in the tab; nothing in `web/src/qr` or the components that call it makes
+a network request. See [0001](docs/adr/0001-the-browser-renders-the-api-is-a-second-surface.md).
+
+- Encoder: [`qrcode-generator`](https://www.npmjs.com/package/qrcode-generator), pinned to
+  `2.0.4`. It implements the standard's own mask selection rather than picking a mask of its
+  own, and it exposes the module matrix directly, which this app needs to draw its own colours,
+  shape and logo rather than being handed a finished picture.
+- Decoder: [`jsqr`](https://www.npmjs.com/package/jsqr), pinned to `1.4.0`. A pure JavaScript
+  decoder with no WebAssembly build to load and no worker to set up, which keeps the decode
+  check to the draw-time cost alone rather than a whole scanning UI.
+- Measured bundle cost, each bundled on its own with Vite at the same settings `task web:build`
+  uses, minified and gzipped: `qrcode-generator` is 20.62 kB (7.29 kB gzipped), `jsqr` is
+  130.48 kB (47.74 kB gzipped), the two together are 151.14 kB (53.75 kB gzipped). The decoder
+  is the larger cost by far; it is kept anyway because the decode check after drawing is what
+  this issue's logo-and-error-correction-level choice is verified against rather than assumed.
+- A logo covers part of the code, so the error correction level and the covered area are chosen
+  together: `web/src/qr/style.ts` raises the level to fit the logo's share of the edge where it
+  can, `web/src/qr/render.ts` then draws and decodes the result, and raises the level or shrinks
+  the logo further whenever that drawn code does not read back, until it does or nothing is left
+  to try. A style that cannot be repaired is reported rather than shown. The threshold that
+  gates all of this, `web/src/qr/style.ts`'s `MIN_CONTRAST`, is WCAG 2.2's non-text 3:1 floor,
+  borrowed as a conservative stand-in rather than derived from how a decoder's own binarisation
+  behaves: nothing sourced ties a WCAG-style luminance ratio to that, and ISO/IEC 18004's own
+  contrast requirement is a different metric (a reflectance difference) with a different number.
+- `web/src/qr/export.ts` turns the already-verified drawing into a PNG and an SVG. The PNG is
+  the same raster the decode check ran on, re-encoded as a file. The SVG is not: it is a second
+  drawing of the module grid, built from the matrix and the style rather than from that raster,
+  with only the embedded logo picture reused byte for byte. `export.test.ts` guards the SVG
+  instead, by walking its own shapes and comparing them cell by cell against the matrix the
+  decode check ran on. Rasterising the generated SVG and decoding it with jsQR would be the
+  stronger check, closing this gap entirely, but this project has no tool to rasterise an SVG in
+  its test environment, so that check is not attempted.
+
 ## Scope of this milestone
 
 Implemented: the entry point and its two listeners, the health/readiness/metrics admin surface,
-the SPA shell and its theme, the Helm chart, and the CI set that checks all of it.
+the SPA shell and its theme, the Helm chart, the CI set that checks all of it, and encoding,
+drawing, the logo and error correction repair, the decode check, and the PNG/SVG download.
 
 Not implemented yet, later milestones:
 
-- The QR encoding itself, the bucket client for preset logos, and every API route. This
-  scaffold serves a static page with nothing behind it.
+- The bucket client for preset logos, and every API route.
+- The configuration in the page URL fragment, so a style is not yet shareable as a link.
 - Guided input for WiFi, vCard, an appointment, a telephone number or a SEPA transfer, instead
   of free text.
 - Saved templates, kept in the browser with no account and no server-side storage.
