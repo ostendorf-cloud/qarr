@@ -71,7 +71,13 @@ export function useQrCode(): QrCodeState {
   // Deep, because the form writes into the style in place. The logo is
   // marked raw where it is made, so this traversal stops at it rather than
   // walking its pixels; the logo picker calls redraw directly after setting it.
-  watch([text, style], redraw, { deep: true, immediate: true })
+  //
+  // Not immediate: text and style both start empty, which is exactly the
+  // state the four refs above are already created with. Running redraw at
+  // creation would only reassign them to the values they already hold,
+  // before a caller such as useUrlFragment gets a chance to restore a
+  // shared link's own text and style.
+  watch([text, style], redraw, { deep: true })
 
   return { text, style, status, result, problem, adjusted, redraw }
 }
