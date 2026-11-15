@@ -86,18 +86,53 @@ a network request. See [0001](docs/adr/0001-the-browser-renders-the-api-is-a-sec
   stronger check, closing this gap entirely, but this project has no tool to rasterise an SVG in
   its test environment, so that check is not attempted.
 
+## The configuration lives in the page URL
+
+`web/src/url/fragment.ts` encodes the text and the style (shape, foreground, background) into
+the fragment of the page's own address, and decodes it back. See
+[0002](docs/adr/0002-the-configuration-lives-in-the-page-url.md).
+
+- A logo is left out of the link entirely, the same way the previous attempt at this app left it
+  out: its pixels would make the link far too long to paste, and a shared style does not have to
+  carry a picture. Reopening a link never restores a logo.
+- The fragment carries a version under its own `v` field. Decoding is forgiving per field rather
+  than all-or-nothing: a field a fragment does not carry falls back to its default instead of the
+  whole link being refused, which is what lets a link made today keep opening once the format
+  grows a field later. A change that cannot be read this way gets a new `CURRENT_VERSION` and its
+  own branch in `decodeFragment`; an already-released version's branch is never edited once a
+  later one exists. `fragment.test.ts` proves this against a hand written fixture of an older
+  shape, not only a round trip of today's encoder.
+- `web/src/composables/useUrlFragment.ts` binds this to the page: it restores the configuration
+  once on creation, then keeps the address bar's fragment current as either the text or the style
+  changes, debounced and written with `history.replaceState`. Never `pushState`, and never a plain
+  assignment to `location.hash`: both of those add a browsing history entry, which would turn
+  every keystroke into something a "back" press has to undo one at a time. `replaceState` adds no
+  entry no matter how often it runs; the debounce exists only so a fast typist does not ask the
+  browser to rewrite the address bar on every keystroke, not to protect history.
+- A fragment this page cannot parse, or one written by a version it does not know, decodes to
+  `null` rather than throwing, and the page falls back to its ordinary empty defaults: a corrupt or
+  future link leaves a usable page, not an error screen.
+- `COMFORTABLE_FRAGMENT_LENGTH` (`web/src/url/fragment.ts`) is 600 characters of the encoded
+  fragment itself, past which the page warns. Chosen rather than measured: an ordinary WiFi
+  password or a short link encodes to a little over half of that, so 600 leaves room for the
+  common case while still catching a configuration that has grown uncomfortable, well before a
+  browser's own practical limit (older browsers and some proxies choke well under 2000 characters
+  for a whole URL). The warning shows on the page itself as soon as the threshold is crossed, so
+  it is seen before the address is copied anywhere, not after.
+
 ## Scope of this milestone
 
 Implemented: the entry point and its two listeners, the health/readiness/metrics admin surface,
-the SPA shell and its theme, the Helm chart, the CI set that checks all of it, and encoding,
-drawing, the logo and error correction repair, the decode check, and the PNG/SVG download.
+the SPA shell and its theme, the Helm chart, the CI set that checks all of it, encoding, drawing,
+the logo and error correction repair, the decode check, the PNG/SVG download, and the
+configuration living in the page URL fragment.
 
 Not implemented yet, later milestones:
 
 - The bucket client for preset logos, and every API route.
-- The configuration in the page URL fragment, so a style is not yet shareable as a link.
 - Guided input for WiFi, vCard, an appointment, a telephone number or a SEPA transfer, instead
-  of free text.
+  of free text. The fragment format is built to grow a field for this without breaking a link
+  already handed out.
 - Saved templates, kept in the browser with no account and no server-side storage.
 - Batch generation and a print sheet: CSV in, many codes out, as an archive or a cut-marked PDF
   sheet.

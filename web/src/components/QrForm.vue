@@ -143,6 +143,9 @@ const logoFractionId = useId()
         A logo covers part of the code, so the error correction level is raised to match how much of
         it the logo covers.
       </p>
+      <p class="text-sm text-text-muted">
+        A shared link never carries this logo: reopening it always starts logo-free.
+      </p>
 
       <GovueButton
         type="button"
