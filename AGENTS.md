@@ -139,9 +139,6 @@ Not implemented yet, later milestones:
 
 ## Deviations
 
-- `.github/workflows/{dco,checks,renovate}.yaml` pin `ostendorf-cloud/workflows`'s reusable
-  workflows at the commit behind the exact tag `v0.2.2`, not a floating `v0` major: that major
-  tag does not exist yet. Repoint at `v0` once it is cut.
 - Every CI job runs on `ubuntu-latest`, not a Blacksmith runner: this repository is public, so
   its CI minutes are not billed the way a private repository's are. No
   `.github/actionlint.yaml` self-hosted-runner override file either, for the same reason.
