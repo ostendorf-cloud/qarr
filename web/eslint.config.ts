@@ -9,7 +9,7 @@ const config: ReturnType<typeof defineConfigWithVueTs> = defineConfigWithVueTs(
   },
   {
     name: 'qarr/ignores',
-    ignores: ['dist/**', 'node_modules/**'],
+    ignores: ['dist/**', 'dist-ssr/**', 'node_modules/**'],
   },
   pluginVue.configs['flat/recommended'],
   vueTsConfigs.recommendedTypeChecked,

@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && pnpm run build:ssr && pnpm run prerender && pnpm run check:legal",
+    "build:ssr": "vite build --ssr src/entry-prerender.ts --outDir dist-ssr",
+    "prerender": "govue-prerender --entry dist-ssr/entry-prerender.js --template ../cmd/qarr/dist/index.html --out-dir ../cmd/qarr/dist",
+    "check:legal": "govue-check-legal --dir ../cmd/qarr/dist",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

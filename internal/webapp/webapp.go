@@ -8,6 +8,7 @@
 package webapp
 
 import (
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/ostendorf-cloud/govue/analytics"
 	"github.com/ostendorf-cloud/govue/clientip"
 	"github.com/ostendorf-cloud/govue/health"
+	"github.com/ostendorf-cloud/govue/language"
 	"github.com/ostendorf-cloud/govue/metrics"
 	"github.com/ostendorf-cloud/govue/middleware"
 	"github.com/ostendorf-cloud/qarr/internal/config"
@@ -27,13 +29,49 @@ import (
 // outermost so it catches a panic from anything below it, RequestID
 // included; see govue's own example/app.go for why.
 //
+// The pages are the prerendered files the sitemap lists, each an exact
+// pattern: the start page and the imprint and privacy page of each language.
+// "/" redirects to the start page of the visitor's language, and the legal
+// short paths such as /impressum redirect through govue's language package.
+// Those redirects are 302 answers, so the counter never sees a 200 for them.
+// Everything else falls to the file server of the catch-all, which serves
+// the hashed assets and answers 404 for the rest. Handler fails when the
+// sitemap or a page it lists is missing.
+//
 // views counts page views. It sits innermost, directly around the mux,
 // because it reads r.Pattern, which only the mux sets and which RequestID's
-// WithContext would hide from anything outside it. The only pattern is "/",
-// so a counted view is reported as "/" and nothing else: the path and the
-// query of the request never leave the process. A nil views counts nothing.
-func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) http.Handler {
+// WithContext would hide from anything outside it. A counted view is
+// reported as the pattern of the page, such as "/de/" or "/en/privacy", and
+// nothing else: the path and the query of the request never leave the
+// process. A nil views counts nothing.
+func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) (http.Handler, error) {
+	s, err := loadSite(dist)
+	if err != nil {
+		return nil, err
+	}
+	redirect, err := language.Redirect(language.Config{Languages: languages})
+	if err != nil {
+		return nil, fmt.Errorf("webapp: %w", err)
+	}
+
 	mux := http.NewServeMux()
+	// "GET /{$}" matches the root alone, so a prefixed path never reaches
+	// the redirect.
+	mux.Handle("GET /{$}", redirect)
+	// Without a method, the root would fall to the file server below for
+	// every method but GET and HEAD, which answered a POST with the raw
+	// template. The redirect answers 405 itself, but only for GET and HEAD.
+	mux.Handle("/{$}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+	}))
+	s.mount(mux)
+	// qarr sells nothing, so Terms stays off: /terms and /agb answer 404
+	// instead of redirecting to a page that does not exist. The method-less
+	// catch-all below is what lets these patterns coexist with it.
+	if err := language.HandleLegal(mux, language.LegalConfig{Config: language.Config{Languages: languages}}, nil); err != nil {
+		return nil, fmt.Errorf("webapp: %w", err)
+	}
 	mux.Handle("/", noDirectoryListing(http.FileServerFS(dist)))
 
 	chain := []middleware.Middleware{
@@ -43,7 +81,7 @@ func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) http.Hand
 	if views != nil {
 		chain = append(chain, views.Middleware)
 	}
-	return middleware.Chain(mux, chain...)
+	return middleware.Chain(mux, chain...), nil
 }
 
 // noDirectoryListing answers 404 for any path ending in "/" except the root.

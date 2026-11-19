@@ -44,14 +44,26 @@ the start.
   never sends. It does stay in the browser, including its history.
 - With counting on, the server reports one page view to Umami after it served the page.
   Counting needs no script in the browser, sets no cookie and stores nothing on the device.
-- Reported: the page as the route pattern (always `/`), never the path or a query string, the
-  origin of the referring site, the browser language, the user agent and the client address
-  shortened to its first three bytes (IPv4) or six (IPv6). Umami derives country, region and
-  city from the shortened address.
+- Reported: the page as the route pattern (`/de/`, `/en/`, `/de/imprint` and so on), never the
+  path or a query string, the origin of the referring site, the browser language, the user agent
+  and the client address shortened to its first three bytes (IPv4) or six (IPv6). Umami derives
+  country, region and city from the shortened address.
 - Not counted: a visitor who sends Do Not Track or Global Privacy Control, prefetch, assets,
   health and metrics routes, and anything that is not a successful HTML page.
 - Who runs the Umami instance, how long it keeps the data and the legal basis are the operator's
   statements, not this repository's. The page states what the software does and no more.
+- The text lives in the privacy page, `web/src/pages/PrivacyPage.vue`, in German and English.
+  The start page only links it, so the two cannot disagree.
+
+## Legal pages
+
+- `/de/imprint`, `/en/imprint`, `/de/privacy` and `/en/privacy` are prerendered with the start
+  pages `/de/` and `/en/` by `task web:build`, which then runs `govue-check-legal` on the result.
+- `/imprint`, `/privacy`, `/impressum`, `/datenschutz` and `/datenschutzerklaerung` redirect to the
+  matching page. `/terms` and `/agb` answer 404: qarr has no terms.
+- `/` redirects to the start page of the visitor's language.
+- The texts are `web/src/pages/ImprintPage.vue` and `PrivacyPage.vue`. The sitemap origin is
+  `ORIGIN` in `web/src/entry-prerender.ts`.
 
 ## Container
 

@@ -7,27 +7,51 @@ import {
   GovueCard,
   GovueFooter,
   GovueHeader,
+  GovueLanguageSwitch,
   GovuePage,
   GovueSkipLink,
+  isLocaleCode,
+  legalPath,
+  useLanguage,
 } from '@ostendorf-cloud/govue'
 
 import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
 import { useQrCode } from './composables/useQrCode'
 import { useUrlFragment } from './composables/useUrlFragment'
-import { COMFORTABLE_FRAGMENT_LENGTH } from './url/fragment'
+import { COMFORTABLE_FRAGMENT_LENGTH, encodeFragment } from './url/fragment'
+
+const language = useLanguage()
+const privacyHref = computed(() =>
+  legalPath('privacy', isLocaleCode(language.locale.value) ? language.locale.value : 'en'),
+)
 
 const code = useQrCode()
 const fragment = useUrlFragment(code.text, code.style)
 const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGMENT_LENGTH)
+
+// Every language is its own prerendered page, so a language change goes to
+// the start page of that language. The fragment is the state of the page, so
+// it travels along. It is encoded from the current text and style rather than
+// read from the address bar, which lags the last keystroke by the debounce.
+function onLanguageChange(next: string): void {
+  const encoded = encodeFragment(code.text.value, code.style.value)
+  window.location.assign(`/${next}/${encoded ? `#${encoded}` : ''}`)
+}
 </script>
 
 <template>
   <GovueSkipLink />
   <GovueHeader>
     <template #brand>qarr</template>
+    <template #actions>
+      <GovueLanguageSwitch @change="onLanguageChange" />
+    </template>
   </GovueHeader>
+  <!-- The page text of qarr itself is English only for now. The header and
+       the footer follow the language of the address. -->
   <GovuePage
+    lang="en"
     width="shell"
     title="qarr"
     lead="QR codes with your own content, colours and logo, generated in your browser."
@@ -62,35 +86,10 @@ const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGM
       </GovueCard>
     </div>
 
-    <GovueCard id="privacy" title="Privacy" as="section">
-      <p class="text-base text-text">
-        What you type into a code is not sent to the server. The page encodes it in the part of the
-        address after the #, which a browser never sends. It stays in your browser, including its
-        history, and it is only as private as wherever you paste the address.
-      </p>
-      <p class="mt-3 text-base text-text">
-        The server counts visits only if its operator has switched that on. If so, it reports one
-        page view to Umami after it served this page. Counting needs no script in your browser and
-        sets no cookie. It stores nothing on your device.
-      </p>
-      <p class="mt-3 text-base text-text">What a counted view holds:</p>
-      <ul class="mt-1 list-disc pl-6 text-base text-text">
-        <li>the page, as the fixed name "/", never the address you typed or a query</li>
-        <li>the site you came from, its name only and no path</li>
-        <li>your browser language and your browser's user agent</li>
-        <li>
-          your IP address, shortened before it is sent to its first three bytes (IPv4) or six bytes
-          (IPv6)
-        </li>
-      </ul>
-      <p class="mt-3 text-base text-text">
-        Umami derives country, region and city from the shortened address.
-      </p>
-      <p class="mt-3 text-base text-text">
-        Nobody is counted who sends Do Not Track or Global Privacy Control. Prefetches, files and
-        pages that failed are not counted either.
-      </p>
-    </GovueCard>
+    <p class="text-base text-text">
+      What this site does with your data, including the counting of page views, is in the
+      <a :href="privacyHref" class="text-accent-text hover:underline">privacy statement</a>.
+    </p>
   </GovuePage>
-  <GovueFooter note="qarr" />
+  <GovueFooter :legal="['imprint', 'privacy']" note="qarr" />
 </template>

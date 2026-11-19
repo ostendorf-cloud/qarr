@@ -16,8 +16,8 @@ The global baseline already applies here and is not repeated below.
   that `web/pnpm-lock.yaml`'s own resolution of it still carries govue's Vue package
   subdirectory. A generic pattern, not qarr's own domain logic.
 - `web/` is the Vue single page application, consuming govue's Vue package as a pnpm git
-  dependency. One placeholder page today; see "What this app will become" below for what grows
-  here.
+  dependency. One start page and the imprint and privacy pages, prerendered in German and
+  English, see "Legal pages" below; see "What this app will become" for what grows here.
 - `charts/qarr/` is the Helm chart that installs this service on a Kubernetes cluster.
 
 ## A build needs the frontend first
@@ -126,14 +126,34 @@ The server reports page views to Umami through govue's `analytics` package. Noth
 here that govue provides. Off unless `UMAMI_URL` and `UMAMI_WEBSITE_ID` are both set.
 
 - `internal/webapp.Handler` puts `views.Middleware` innermost, directly around the mux, because
-  it reads `r.Pattern`. The only pattern is `/`, so the one reported URL is `/`: what a user
-  encodes can be in a path or a query only by hand, and is never reported. Moving the middleware
-  outside `RequestID` loses the pattern and counts nothing; `analytics_test.go` fails then.
+  it reads `r.Pattern`. Every page is an exact pattern (`/de/`, `/en/privacy`), so the reported
+  URL is that fixed pattern: what a user encodes can be in a path or a query only by hand, and
+  is never reported. Moving the middleware outside `RequestID` loses the pattern and counts
+  nothing; `analytics_test.go` fails then. The redirects (`/`, `/imprint`, `/impressum`) answer
+  302 and are never counted.
 - A new public route is registered on the mux with a pattern. A page with a variable part in its
   path reports the pattern, not the value. An API route needs `Options.Skip`.
 - `TRUSTED_PROXIES` must name the ingress, or every view comes from the proxy and none counts.
-- A change to what is reported needs an update of the privacy card in `web/src/App.vue` and the
-  README section "Privacy and page view counting".
+- A change to what is reported needs an update of `web/src/pages/PrivacyPage.vue` (both
+  languages) and the README section "Privacy and page view counting".
+
+## Legal pages
+
+Nothing govue provides is built here: `language.HandleLegal`, `GovueLegalPage` and
+`govue-check-legal` do the routes, the page shell and the check.
+
+- `web/src/site.ts` is the route table and the page of each path. The browser entry
+  (`main.ts`) and the prerender entry (`entry-prerender.ts`) both read it. A page added there
+  is prerendered and listed in `sitemap.xml`, and the server serves exactly the pages that file
+  lists (`internal/webapp/site.go`), so Go holds no second route table.
+- `task web:build` runs the client build, the SSR build, `govue-prerender` and
+  `govue-check-legal`. A page without the imprint and privacy links of its language fails it.
+- qarr has no terms. `LegalConfig.Terms` stays off and `terms` stays out of `pages`. Add both
+  together if that ever changes.
+- The legal texts are the site's own and state only what the code and this repository back. A
+  fact that no document states (hosting provider, retention, legal basis) is not written down.
+- The start page text is English only for now, marked `lang="en"`. Header and footer follow the
+  language of the address.
 
 ## Scope of this milestone
 

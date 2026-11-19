@@ -67,5 +67,8 @@ export function useUrlFragment(text: Ref<string>, style: Ref<Style>): UrlFragmen
 }
 
 function currentFragment(): string {
+  // The build renders the page in Node, where there is no address and so no
+  // fragment to restore.
+  if (typeof window === 'undefined') return ''
   return window.location.hash.startsWith('#') ? window.location.hash.slice(1) : window.location.hash
 }

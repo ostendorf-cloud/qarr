@@ -79,12 +79,13 @@ func countingHandlerWith(t *testing.T, fake *fakeUmami, trusted []netip.Prefix) 
 		t.Fatalf("NewViews: %v", err)
 	}
 
-	dist := fstest.MapFS{
-		"index.html":    {Data: []byte("<!doctype html><title>qarr</title>")},
-		"app.js":        {Data: []byte("console.log(1)")},
-		"assets/app.js": {Data: []byte("console.log(2)")},
+	dist := siteFS()
+	dist["app.js"] = &fstest.MapFile{Data: []byte("console.log(1)")}
+	h, err := webapp.Handler(dist, testLogger(), views)
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
 	}
-	return webapp.Handler(dist, testLogger(), views), views
+	return h, views
 }
 
 func visit(t *testing.T, h http.Handler, target string, header http.Header) *httptest.ResponseRecorder {
@@ -138,7 +139,7 @@ func TestHandler_CountsTheRoutePatternNeverWhatTheUserEncoded(t *testing.T) {
 	fake := &fakeUmami{}
 	h, views := countingHandler(t, fake)
 
-	target := "/?text=WIFI%3AS%3Ahome%3BP%3Ahunter2%3B%3B&url=https%3A%2F%2Fsecret.example%2Ftoken%3Dabc123&v=1"
+	target := "/de/?text=WIFI%3AS%3Ahome%3BP%3Ahunter2%3B%3B&url=https%3A%2F%2Fsecret.example%2Ftoken%3Dabc123&v=1"
 	if rec := visit(t, h, target, nil); rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d, want 200", rec.Code)
 	}
@@ -148,8 +149,8 @@ func TestHandler_CountsTheRoutePatternNeverWhatTheUserEncoded(t *testing.T) {
 	if len(posts) != 1 {
 		t.Fatalf("got %d views, want 1: %v", len(posts), posts)
 	}
-	if got := urlsOf(t, posts); got[0] != "/" {
-		t.Errorf("reported url = %v, want the route pattern /", got[0])
+	if got := urlsOf(t, posts); got[0] != "/de/" {
+		t.Errorf("reported url = %v, want the route pattern /de/", got[0])
 	}
 	for _, leak := range []string{"hunter2", "WIFI", "secret.example", "abc123", "text=", "url=", "%3A"} {
 		if strings.Contains(posts[0], leak) {
@@ -168,15 +169,16 @@ func TestHandler_CountsOnlyPagesThroughTheRealChain(t *testing.T) {
 	fake := &fakeUmami{}
 	h, views := countingHandler(t, fake)
 
-	visit(t, h, "/", nil)                                          // counted
-	visit(t, h, "/", http.Header{"Dnt": {"1"}})                    // Do Not Track
-	visit(t, h, "/", http.Header{"Sec-Gpc": {"1"}})                // Global Privacy Control
-	visit(t, h, "/", http.Header{"Sec-Purpose": {"prefetch"}})     // prefetch
-	visit(t, h, "/assets/", nil)                                   // directory listing
-	visit(t, h, "/app.js", nil)                                    // asset
-	visit(t, h, "/index.html", nil)                                // redirect
-	visit(t, h, "/WIFI:S:home;P:hunter2;;", nil)                   // no such page
-	visit(t, h, "/", http.Header{"User-Agent": {"Googlebot/2.1"}}) // bot
+	visit(t, h, "/de/", nil)                                          // counted
+	visit(t, h, "/de/", http.Header{"Dnt": {"1"}})                    // Do Not Track
+	visit(t, h, "/de/", http.Header{"Sec-Gpc": {"1"}})                // Global Privacy Control
+	visit(t, h, "/de/", http.Header{"Sec-Purpose": {"prefetch"}})     // prefetch
+	visit(t, h, "/assets/", nil)                                      // directory listing
+	visit(t, h, "/app.js", nil)                                       // asset
+	visit(t, h, "/index.html", nil)                                   // redirect
+	visit(t, h, "/", nil)                                             // language redirect
+	visit(t, h, "/WIFI:S:home;P:hunter2;;", nil)                      // no such page
+	visit(t, h, "/de/", http.Header{"User-Agent": {"Googlebot/2.1"}}) // bot
 	closeViews(t, views)
 
 	posts := fake.bodies()
@@ -204,7 +206,7 @@ func TestHandler_ASlowUmamiNeverDelaysAResponse(t *testing.T) {
 
 	start := time.Now()
 	for range 20 {
-		if rec := visit(t, h, "/", nil); rec.Code != http.StatusOK {
+		if rec := visit(t, h, "/de/", nil); rec.Code != http.StatusOK {
 			t.Fatalf("GET status = %d, want 200", rec.Code)
 		}
 	}
@@ -247,7 +249,7 @@ func TestNewViews_MasksTheAddressAndTrustsOnlyTheConfiguredProxies(t *testing.T)
 			fake := &fakeUmami{}
 			h, views := countingHandlerWith(t, fake, tc.trusted)
 
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/", nil)
 			req.RemoteAddr = tc.peer
 			req.Header.Set("User-Agent", visitorUA)
 			if tc.xff != "" {
@@ -281,13 +283,45 @@ func TestHandler_CountingOffCountsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analytics.New: %v", err)
 	}
-	dist := fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}}
-	h := webapp.Handler(dist, testLogger(), views)
+	h, err := webapp.Handler(siteFS(), testLogger(), views)
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
 
-	if rec := visit(t, h, "/", nil); rec.Code != http.StatusOK {
+	if rec := visit(t, h, "/de/", nil); rec.Code != http.StatusOK {
 		t.Fatalf("GET status = %d, want 200", rec.Code)
 	}
 	if got := views.Stats(); got.Sent+got.Failed+got.Dropped != 0 {
 		t.Errorf("stats = %+v, nothing may be queued", got)
+	}
+}
+
+// TestHandler_CountsLegalPagesByRouteAndNeverTheRedirects proves a legal page
+// is reported as its own route, and that the short paths and the German
+// aliases, which only redirect, are not counted at all. The privacy
+// statement says redirects are not counted.
+func TestHandler_CountsLegalPagesByRouteAndNeverTheRedirects(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeUmami{}
+	h, views := countingHandler(t, fake)
+
+	visit(t, h, "/en/privacy", nil)  // counted
+	visit(t, h, "/de/imprint", nil)  // counted
+	visit(t, h, "/imprint", nil)     // redirect
+	visit(t, h, "/privacy", nil)     // redirect
+	visit(t, h, "/impressum", nil)   // German alias
+	visit(t, h, "/datenschutz", nil) // German alias
+	visit(t, h, "/datenschutzerklaerung", nil)
+	visit(t, h, "/agb", nil) // no terms, 404
+	closeViews(t, views)
+
+	got := urlsOf(t, fake.bodies())
+	if len(got) != 2 {
+		t.Fatalf("got %d views, want 2: %v", len(got), got)
+	}
+	seen := map[any]bool{got[0]: true, got[1]: true}
+	if !seen["/en/privacy"] || !seen["/de/imprint"] {
+		t.Errorf("reported urls = %v, want /en/privacy and /de/imprint", got)
 	}
 }

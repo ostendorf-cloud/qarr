@@ -14,6 +14,11 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  // govue ships .ts and .vue sources, which Node cannot load, so the SSR
+  // bundle that the prerender runs has to contain them.
+  ssr: {
+    noExternal: ['@ostendorf-cloud/govue'],
+  },
   build: {
     outDir: '../cmd/qarr/dist',
     emptyOutDir: true,

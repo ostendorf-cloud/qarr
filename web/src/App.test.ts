@@ -1,12 +1,23 @@
 // Copyright 2026 Simon Ostendorf
 // SPDX-License-Identifier: Apache-2.0
 
-import { fireEvent, render, screen } from '@testing-library/vue'
+import { fireEvent, render as renderComponent, screen, within } from '@testing-library/vue'
+import { createGovueI18n } from '@ostendorf-cloud/govue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App.vue'
 import { decodeFragment, encodeFragment } from './url/fragment'
 import { defaultStyle } from './qr/style'
+
+// The page needs the language layer, which main.ts installs from the address.
+function renderApp(locale = 'en') {
+  return renderComponent(App, { global: { plugins: [createGovueI18n({ locale })] } })
+}
+
+function render(component: typeof App) {
+  void component
+  return renderApp()
+}
 
 beforeEach(() => {
   // Every test starts from a page opened with no link of its own, since the
@@ -22,7 +33,7 @@ afterEach(() => {
 
 describe('App', () => {
   it('names qarr in the brand slot and the page heading', () => {
-    render(App)
+    renderApp()
 
     expect(screen.getByRole('heading', { level: 1, name: 'qarr' })).toBeVisible()
   })
@@ -43,20 +54,62 @@ describe('App', () => {
     expect(screen.getByText(/nothing typed here leaves this tab/i)).toBeVisible()
   })
 
-  it('states what page view counting reports and what it leaves out', () => {
-    render(App)
+  it('points to the privacy statement instead of repeating it', () => {
+    renderApp('en')
 
-    const privacy = screen.getByRole('heading', { name: 'Privacy' }).closest('section')
-    expect(privacy).not.toBeNull()
-    const text = privacy?.textContent ?? ''
-    expect(text).toMatch(/not sent to the server/i)
-    expect(text).toMatch(/including its history/i)
-    expect(text).toMatch(/needs no script in your browser and sets no cookie/i)
-    expect(text).toMatch(/derives country, region and city/i)
-    expect(text).not.toMatch(/never leaves this tab/i)
-    expect(text).toMatch(/never the address you typed or a query/i)
-    expect(text).toMatch(/shortened/i)
-    expect(text).toMatch(/Do Not Track or Global Privacy Control/)
+    // The statement lives on the privacy page alone, so the start page
+    // cannot contradict it.
+    expect(screen.queryByRole('heading', { name: 'Privacy' })).not.toBeInTheDocument()
+    const links = screen.getAllByRole('link', { name: /privacy/i })
+    expect(links.length).toBeGreaterThan(0)
+    for (const link of links) expect(link).toHaveAttribute('href', '/en/privacy')
+  })
+
+  it('links the imprint and the privacy page of its language in the footer', () => {
+    renderApp('de')
+
+    const footer = screen.getByRole('contentinfo')
+    expect(within(footer).getByRole('link', { name: 'Impressum' })).toHaveAttribute(
+      'href',
+      '/de/imprint',
+    )
+    expect(within(footer).getByRole('link', { name: 'Datenschutz' })).toHaveAttribute(
+      'href',
+      '/de/privacy',
+    )
+  })
+
+  it('goes to the start page of the other language when the language changes', async () => {
+    const assign = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({
+      ...window.location,
+      assign,
+    })
+    renderApp('en')
+
+    await fireEvent.update(screen.getByRole('combobox', { name: /language/i }), 'de')
+
+    expect(assign).toHaveBeenCalledWith('/de/')
+  })
+
+  it('carries the current text and style to the other language, even before the address catches up', async () => {
+    const assign = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({
+      ...window.location,
+      assign,
+    })
+    renderApp('en')
+
+    // No timer runs: the address bar has not caught up with this keystroke.
+    await fireEvent.update(
+      screen.getByPlaceholderText('https://example.org'),
+      'https://qarr.example/a',
+    )
+    await fireEvent.update(screen.getByRole('combobox', { name: /language/i }), 'de')
+
+    expect(assign).toHaveBeenCalledWith(
+      `/de/#${encodeFragment('https://qarr.example/a', defaultStyle())}`,
+    )
   })
 
   it('offers a skip link as the first focusable element', () => {
