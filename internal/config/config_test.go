@@ -26,28 +26,36 @@ func TestLoad_Umami(t *testing.T) {
 	}
 
 	on, err := config.Load(env(map[string]string{
-		"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID, "SITE_HOST": "qarr.example.test",
+		"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID, "SITE_URL": "https://qarr.example.test:8443",
 		"TRUSTED_PROXIES": "10.0.0.0/8",
 	}))
 	if err != nil {
 		t.Fatalf("Load() with the full set: %v", err)
 	}
-	if !on.Umami.Enabled() || on.SiteHost != "qarr.example.test" {
-		t.Fatalf("Load() = %+v, want counting on for qarr.example.test", on)
+	if !on.Umami.Enabled() || on.SiteURL.String() != "https://qarr.example.test:8443" {
+		t.Fatalf("Load() = %+v, want counting on for https://qarr.example.test:8443", on)
+	}
+	if on.SiteURL.Hostname() != "qarr.example.test" {
+		t.Fatalf("SiteURL.Hostname() = %q, want the bare host", on.SiteURL.Hostname())
+	}
+	if off.SiteURL.String() != config.DefaultSiteURL {
+		t.Fatalf("SiteURL default = %q, want %q", off.SiteURL, config.DefaultSiteURL)
 	}
 	if want := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}; !reflect.DeepEqual(on.TrustedProxies, want) {
 		t.Fatalf("TrustedProxies = %v, want %v", on.TrustedProxies, want)
 	}
 
 	bad := map[string]map[string]string{
-		"url only":          {"UMAMI_URL": umamiURL},
-		"id only":           {"UMAMI_WEBSITE_ID": umamiID},
-		"no site host":      {"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID},
+		"umami url only":    {"UMAMI_URL": umamiURL},
+		"umami id only":     {"UMAMI_WEBSITE_ID": umamiID},
 		"bad trusted proxy": {"TRUSTED_PROXIES": "not-a-cidr"},
-		"host with scheme":  {"SITE_HOST": "https://qarr.example.test"},
-		"host with path":    {"SITE_HOST": "qarr.example.test/app"},
-		"host with query":   {"SITE_HOST": "qarr.example.test?x=1"},
-		"host with space":   {"SITE_HOST": "qarr example"},
+		"url bare host":     {"SITE_URL": "qarr.example.test"},
+		"url with path":     {"SITE_URL": "https://qarr.example.test/app"},
+		"url with query":    {"SITE_URL": "https://qarr.example.test?x=1"},
+		"url with fragment": {"SITE_URL": "https://qarr.example.test#x"},
+		"url with userinfo": {"SITE_URL": "https://user@qarr.example.test"},
+		"url http remote":   {"SITE_URL": "http://qarr.example.test"},
+		"url other scheme":  {"SITE_URL": "ftp://qarr.example.test"},
 	}
 	for name, values := range bad {
 		_, err := config.Load(env(values))
@@ -58,13 +66,15 @@ func TestLoad_Umami(t *testing.T) {
 		if strings.Contains(err.Error(), umamiURL) {
 			t.Errorf("%s: error repeats the Umami URL: %v", name, err)
 		}
-		if strings.HasPrefix(name, "host") && !strings.Contains(err.Error(), "SITE_HOST") {
-			t.Errorf("%s: error does not name SITE_HOST: %v", name, err)
+		if strings.HasPrefix(name, "url") && !strings.Contains(err.Error(), "SITE_URL") {
+			t.Errorf("%s: error does not name SITE_URL: %v", name, err)
 		}
 	}
 
-	if _, err := config.Load(env(map[string]string{"SITE_HOST": "qarr.example.test:8443"})); err != nil {
-		t.Errorf("host with a port: Load() = %v, want none", err)
+	for _, ok := range []string{"http://localhost:8080", "https://qarr.example.test/"} {
+		if _, err := config.Load(env(map[string]string{"SITE_URL": ok})); err != nil {
+			t.Errorf("SITE_URL %q: Load() = %v, want none", ok, err)
+		}
 	}
 }
 
@@ -136,6 +146,7 @@ func TestLoad(t *testing.T) {
 			// The Umami defaults (timeout, queue size) are govue's own and
 			// are covered by TestLoad_Umami, not repeated in every row.
 			got.Umami = tc.want.Umami
+			got.SiteURL = tc.want.SiteURL // covered by TestLoad_Umami
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("Load() = %+v, want %+v", got, tc.want)
 			}

@@ -10,11 +10,17 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"strings"
+	"net/url"
 
 	"github.com/ostendorf-cloud/govue/analytics"
 	"github.com/ostendorf-cloud/govue/clientip"
+	"github.com/ostendorf-cloud/govue/envconf"
 )
+
+// DefaultSiteURL is the public origin used when SITE_URL is unset. It is also
+// the origin the web build bakes into the prerendered pages and the sitemap
+// (web/src/entry-prerender.ts), which the server replaces by SITE_URL.
+const DefaultSiteURL = "https://qarr.de"
 
 // Config is every setting qarr reads from the environment.
 type Config struct {
@@ -28,9 +34,10 @@ type Config struct {
 	// Umami is govue's page view counting. It is off unless UMAMI_URL and
 	// UMAMI_WEBSITE_ID are both set; one of the two alone is an error.
 	Umami analytics.Config
-	// SiteHost is the public host of this deployment, sent to Umami as the
-	// hostname of every view. Required when counting is on.
-	SiteHost string
+	// SiteURL is the public origin of this deployment (SITE_URL). The
+	// canonical and hreflang links and the sitemap are built from it, and its
+	// host is sent to Umami as the hostname of every view.
+	SiteURL *url.URL
 	// TrustedProxies are the proxies whose X-Forwarded-For is believed when
 	// the client address is resolved. Behind an ingress without it every
 	// view comes from the proxy and none is counted.
@@ -56,6 +63,7 @@ func Load(getenv func(string) string) (Config, error) {
 		LogLevel:  valueOrDefault(getenv("LOG_LEVEL"), "info"),
 	}
 
+	l := envconf.New(getenv)
 	var problems []error
 
 	umami, err := analytics.LoadConfig(getenv)
@@ -63,16 +71,11 @@ func Load(getenv func(string) string) (Config, error) {
 		problems = append(problems, err)
 	}
 	cfg.Umami = umami
-	cfg.SiteHost = getenv("SITE_HOST")
-	if cfg.Umami.Enabled() && cfg.SiteHost == "" {
-		problems = append(problems, errors.New("SITE_HOST: required when UMAMI_URL and UMAMI_WEBSITE_ID are set"))
+	siteURL, err := loadSiteURL(l)
+	if err != nil {
+		problems = append(problems, err)
 	}
-	// The same rule govue applies to Options.Hostname: a bare host, so a
-	// scheme, a path, userinfo, a query or a space is a mistake. A port is
-	// accepted, as govue accepts it. The value is not echoed.
-	if strings.ContainsAny(cfg.SiteHost, "/@?# \t") || strings.Contains(cfg.SiteHost, "://") {
-		problems = append(problems, errors.New("SITE_HOST: must be a bare host such as qarr.example.com, with no scheme, path, query or spaces"))
-	}
+	cfg.SiteURL = siteURL
 	proxies, err := clientip.ParseCIDRs(getenv("TRUSTED_PROXIES"))
 	if err != nil {
 		problems = append(problems, fmt.Errorf("TRUSTED_PROXIES: %w", err))
@@ -86,6 +89,28 @@ func Load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("load config: %w", err)
 	}
 	return cfg, nil
+}
+
+// loadSiteURL reads SITE_URL through govue's envconf, which requires an
+// absolute http or https URL without credentials, query or fragment, then
+// adds the rules of an origin: no path, and plain http only for a loopback
+// host. The value is not echoed.
+func loadSiteURL(l *envconf.Loader) (*url.URL, error) {
+	u := l.URL("SITE_URL", DefaultSiteURL)
+	if err := l.Err(); err != nil {
+		return nil, err
+	}
+	if u.Path != "" {
+		return nil, errors.New("SITE_URL: must be an origin without a path")
+	}
+	if u.Scheme == "http" {
+		switch u.Hostname() {
+		case "localhost", "127.0.0.1", "::1":
+		default:
+			return nil, errors.New("SITE_URL: http is allowed for localhost only, use https")
+		}
+	}
+	return u, nil
 }
 
 // valueOrDefault returns value unless it is empty, in which case it returns

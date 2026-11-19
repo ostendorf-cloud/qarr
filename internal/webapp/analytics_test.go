@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -70,9 +71,11 @@ func countingHandler(t *testing.T, fake *fakeUmami) (http.Handler, *analytics.Cl
 func countingHandlerWith(t *testing.T, fake *fakeUmami, trusted []netip.Prefix) (http.Handler, *analytics.Client) {
 	t.Helper()
 
+	// The port is part of SITE_URL; Umami must still get the bare host.
+	siteURL := &url.URL{Scheme: "https", Host: "qarr.example.test:8443"}
 	views, err := webapp.NewViews(config.Config{
 		Umami:          analytics.Config{URL: "https://umami.example.test", WebsiteID: umamiID},
-		SiteHost:       "qarr.example.test",
+		SiteURL:        siteURL,
 		TrustedProxies: trusted,
 	}, testLogger(), metrics.NewRegistry(), &http.Client{Transport: fake})
 	if err != nil {
@@ -81,7 +84,7 @@ func countingHandlerWith(t *testing.T, fake *fakeUmami, trusted []netip.Prefix) 
 
 	dist := siteFS()
 	dist["app.js"] = &fstest.MapFile{Data: []byte("console.log(1)")}
-	h, err := webapp.Handler(dist, testLogger(), views)
+	h, err := webapp.Handler(dist, siteURL, testLogger(), views)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
@@ -126,6 +129,35 @@ func urlsOf(t *testing.T, posts []string) []any {
 		urls = append(urls, ev.Payload["url"])
 	}
 	return urls
+}
+
+// TestHandler_ReportsTheBareHostOfSiteURL proves the hostname Umami receives
+// is the host of SITE_URL without its scheme and its port.
+func TestHandler_ReportsTheBareHostOfSiteURL(t *testing.T) {
+	t.Parallel()
+
+	fake := &fakeUmami{}
+	h, views := countingHandler(t, fake)
+	if rec := visit(t, h, "/de/", nil); rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d, want 200", rec.Code)
+	}
+	closeViews(t, views)
+
+	posts := fake.bodies()
+	if len(posts) != 1 {
+		t.Fatalf("got %d views, want 1: %v", len(posts), posts)
+	}
+	var ev struct {
+		Payload struct {
+			Hostname string `json:"hostname"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal([]byte(posts[0]), &ev); err != nil {
+		t.Fatal(err)
+	}
+	if ev.Payload.Hostname != "qarr.example.test" {
+		t.Errorf("hostname = %q, want qarr.example.test", ev.Payload.Hostname)
+	}
 }
 
 // TestHandler_CountsTheRoutePatternNeverWhatTheUserEncoded sends what a user
@@ -283,7 +315,7 @@ func TestHandler_CountingOffCountsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analytics.New: %v", err)
 	}
-	h, err := webapp.Handler(siteFS(), testLogger(), views)
+	h, err := webapp.Handler(siteFS(), &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), views)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}

@@ -4,6 +4,7 @@
 package webapp
 
 import (
+	"bytes"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/ostendorf-cloud/qarr/internal/config"
 )
 
 // languages are the language codes of the site. web/src/i18n of govue holds
@@ -53,11 +56,12 @@ type site struct {
 // The sitemap is the list of routes, so Go holds no second copy of the route
 // table. A request path is never joined to a file name: the files are read
 // here, by names built from the validated locs.
-func loadSite(dist fs.FS) (*site, error) {
+func loadSite(dist fs.FS, siteURL *url.URL) (*site, error) {
 	raw, err := readLimited(dist, sitemapFile)
 	if err != nil {
 		return nil, fmt.Errorf("webapp: load site: %w", err)
 	}
+	raw = withOrigin(raw, siteURL)
 
 	var doc struct {
 		XMLName xml.Name
@@ -80,7 +84,7 @@ func loadSite(dist fs.FS) (*site, error) {
 			problems = append(problems, fmt.Errorf("webapp: load site: a url of %s has %d loc elements, want 1", sitemapFile, len(u.Locs)))
 			continue
 		}
-		page, path, err := loadPage(dist, strings.TrimSpace(u.Locs[0]))
+		page, path, err := loadPage(dist, siteURL, strings.TrimSpace(u.Locs[0]))
 		if err != nil {
 			problems = append(problems, err)
 			continue
@@ -108,7 +112,16 @@ func loadSite(dist fs.FS) (*site, error) {
 	return s, nil
 }
 
-func loadPage(dist fs.FS, loc string) (sitePage, string, error) {
+// withOrigin replaces the origin the web build bakes into its output, the
+// canonical and hreflang links of a page and the locs of the sitemap, by the
+// configured site URL. With the default origin it changes nothing.
+func withOrigin(content []byte, siteURL *url.URL) []byte {
+	built := []byte(config.DefaultSiteURL + "/")
+	want := []byte(strings.TrimSuffix(siteURL.String(), "/") + "/")
+	return bytes.ReplaceAll(content, built, want)
+}
+
+func loadPage(dist fs.FS, siteURL *url.URL, loc string) (sitePage, string, error) {
 	bad := func(reason string) (sitePage, string, error) {
 		return sitePage{}, "", fmt.Errorf("webapp: load site: loc %q %s", loc, reason)
 	}
@@ -140,7 +153,7 @@ func loadPage(dist fs.FS, loc string) (sitePage, string, error) {
 	if err != nil {
 		return bad("has no page: " + err.Error())
 	}
-	return sitePage{pattern: pattern, content: content}, "/" + lang + "/" + name, nil
+	return sitePage{pattern: pattern, content: withOrigin(content, siteURL)}, "/" + lang + "/" + name, nil
 }
 
 func readLimited(fsys fs.FS, name string) ([]byte, error) {

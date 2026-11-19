@@ -133,6 +133,9 @@ here that govue provides. Off unless `UMAMI_URL` and `UMAMI_WEBSITE_ID` are both
   302 and are never counted.
 - A new public route is registered on the mux with a pattern. A page with a variable part in its
   path reports the pattern, not the value. An API route needs `Options.Skip`.
+- `SITE_URL` (default `https://qarr.de`) is the public origin. Umami gets its bare host. The web
+  build bakes `https://qarr.de` into the canonical and hreflang links and the sitemap
+  (`entry-prerender.ts`); the server replaces it by `SITE_URL` when it loads the pages.
 - `TRUSTED_PROXIES` must name the ingress, or every view comes from the proxy and none counts.
 - A change to what is reported needs an update of `web/src/pages/PrivacyPage.vue` (both
   languages) and the README section "Privacy and page view counting".

@@ -7,10 +7,12 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"testing/fstest"
 
+	"github.com/ostendorf-cloud/qarr/internal/config"
 	"github.com/ostendorf-cloud/qarr/internal/webapp"
 )
 
@@ -52,11 +54,49 @@ func siteFS() fstest.MapFS {
 
 func newHandler(t *testing.T, dist fs.FS) http.Handler {
 	t.Helper()
-	h, err := webapp.Handler(dist, testLogger(), nil)
+	h, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
 	return h
+}
+
+// TestHandler_ReplacesTheBakedInOriginBySiteURL proves the canonical and
+// hreflang links and the sitemap carry SITE_URL, not the origin of the build.
+func TestHandler_ReplacesTheBakedInOriginBySiteURL(t *testing.T) {
+	t.Parallel()
+
+	built := config.DefaultSiteURL
+	page := `<link rel="canonical" href="` + built + `/de/"><link rel="alternate" hreflang="en" href="` + built + `/en/">`
+	dist := siteFS()
+	dist["sitemap.xml"] = &fstest.MapFile{Data: []byte(sitemapOf(
+		built+"/de/", built+"/en/", built+"/de/imprint", built+"/en/imprint", built+"/de/privacy", built+"/en/privacy"))}
+	dist["de/index.html"] = &fstest.MapFile{Data: []byte(page)}
+
+	site := &url.URL{Scheme: "https", Host: "staging.example.test:8443"}
+	h, err := webapp.Handler(dist, site, testLogger(), nil)
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
+
+	body := get(t, h, "/de/", nil).Body.String()
+	want := `<link rel="canonical" href="https://staging.example.test:8443/de/"><link rel="alternate" hreflang="en" href="https://staging.example.test:8443/en/">`
+	if body != want {
+		t.Errorf("page = %q, want %q", body, want)
+	}
+	sitemap := get(t, h, "/sitemap.xml", nil).Body.String()
+	if strings.Contains(sitemap, built) || !strings.Contains(sitemap, "<loc>https://staging.example.test:8443/de/privacy</loc>") {
+		t.Errorf("sitemap = %q, want every loc under SITE_URL", sitemap)
+	}
+
+	// The default origin leaves the files as built.
+	h, err = webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.de"}, testLogger(), nil)
+	if err != nil {
+		t.Fatalf("Handler: %v", err)
+	}
+	if got := get(t, h, "/de/", nil).Body.String(); got != page {
+		t.Errorf("page with the default origin = %q, want it unchanged", got)
+	}
 }
 
 func get(t *testing.T, h http.Handler, target string, header http.Header) *httptest.ResponseRecorder {
@@ -245,7 +285,7 @@ func TestHandler_FailsWhenTheSiteIsIncomplete(t *testing.T) {
 		"a duplicate loc":           withSitemap(append(append([]string{}, allLocs...), allLocs[0])...),
 	}
 	for name, dist := range cases {
-		if _, err := webapp.Handler(dist, testLogger(), nil); err == nil {
+		if _, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil); err == nil {
 			t.Errorf("%s: Handler returned no error", name)
 		}
 	}

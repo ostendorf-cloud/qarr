@@ -30,7 +30,7 @@ and metrics on a second, administrative listener, never on the public one.
 | `LOG_LEVEL` | `debug`, `info`, `warn` or `error` | `info` |
 | `UMAMI_URL` | Base URL of a Umami instance; page views are reported to it from the server | unset |
 | `UMAMI_WEBSITE_ID` | Umami website id (a UUID) | unset |
-| `SITE_HOST` | Public host sent to Umami; required when counting is on | unset |
+| `SITE_URL` | Public origin without path: canonical and hreflang links, sitemap and the Umami hostname (its bare host) | `https://qarr.de` |
 | `TRUSTED_PROXIES` | Comma separated CIDRs of the proxies in front of qarr; without them, behind a proxy, no view is counted | unset |
 | `UMAMI_TIMEOUT`, `UMAMI_QUEUE_SIZE` | Optional govue settings: post timeout and queue size | `5s`, `256` |
 
