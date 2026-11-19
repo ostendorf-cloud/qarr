@@ -72,6 +72,30 @@ describe.each(locales)('the privacy page in %s', (locale) => {
     expect(text).toMatch(history)
   })
 
+  it('says the guided forms stay in the browser too, naming a password and an IBAN', () => {
+    show(PrivacyPage, locale)
+    const text = (screen.getByRole('main').textContent ?? '').replace(/\s+/g, ' ')
+
+    if (locale === 'de') {
+      expect(text).toMatch(/geführten Formulare.*WLAN-Passwort.*IBAN.*nicht an den Server/)
+    } else {
+      expect(text).toMatch(/guided forms.*WiFi password.*IBAN.*not sent to the server/)
+    }
+  })
+
+  it('says the guided entries are part of the address, kept by a copied link and the history', () => {
+    show(PrivacyPage, locale)
+    const text = (screen.getByRole('main').textContent ?? '').replace(/\s+/g, ' ')
+
+    if (locale === 'de') {
+      expect(text).toMatch(/Teil der Adresse.*Klartext.*kopierte Adresse.*Verlauf/)
+      expect(text).not.toMatch(/solange das Formular ausgefüllt ist/)
+    } else {
+      expect(text).toMatch(/part of the address.*plain text.*copied address.*history/)
+      expect(text).not.toMatch(/for as long as the form is filled in/)
+    }
+  })
+
   it('states the counting fields, the opt in and the signals it honours', () => {
     show(PrivacyPage, locale)
     const main = screen.getByRole('main')

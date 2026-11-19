@@ -10,6 +10,7 @@
 import { createGovueI18n } from '@ostendorf-cloud/govue'
 import { localizedFiles, render, type PrerenderFile } from '@ostendorf-cloud/govue/server'
 
+import { messages } from './i18n/messages'
 import { pageFor, routes } from './site'
 
 /**
@@ -26,7 +27,7 @@ export function files(template: string): Promise<PrerenderFile[]> {
     render: (variant) =>
       render(pageFor(variant.path), {
         setup: (app) => {
-          app.use(createGovueI18n({ locale: variant.locale }))
+          app.use(createGovueI18n({ locale: variant.locale, messages }))
         },
       }),
   })

@@ -23,6 +23,7 @@
  * out keeps opening.
  */
 
+import { emptyFields, GUIDED_KINDS, SPECS, type Fields, type GuidedKind } from '../qr/guided'
 import { defaultStyle, type Shape, type Style } from '../qr/style'
 
 export const CURRENT_VERSION = 1
@@ -35,9 +36,18 @@ export const CURRENT_VERSION = 1
  */
 export const COMFORTABLE_FRAGMENT_LENGTH = 600
 
+/** A guided kind and the fields of its form, carried instead of free text. */
+export interface Guided {
+  kind: GuidedKind
+  fields: Fields
+}
+
 interface FragmentV1 {
   v: 1
   text?: unknown
+  /** Added after the first release: a link without it is free text. */
+  kind?: unknown
+  fields?: unknown
   style?: {
     shape?: unknown
     foreground?: unknown
@@ -49,22 +59,30 @@ interface FragmentV1 {
 export interface RestoredConfiguration {
   text: string
   style: Style
+  /** The guided kind and its fields, or null for free text. */
+  guided: Guided | null
 }
 
 /** The length of the fragment this text and style would encode to. */
-export function fragmentLength(text: string, style: Style): number {
-  return encodeFragment(text, style).length
+export function fragmentLength(text: string, style: Style, guided: Guided | null = null): number {
+  return encodeFragment(text, style, guided).length
+}
+
+/** Whether a guided form still holds nothing but its starting values. */
+function untouched(guided: Guided): boolean {
+  const start = emptyFields()[guided.kind]
+  return Object.entries(guided.fields).every(([key, value]) => value === (start[key] ?? ''))
 }
 
 /**
  * Builds the fragment for the page URL. Empty text encodes to an empty
  * string, so a page with nothing typed into it carries no fragment at all.
  */
-export function encodeFragment(text: string, style: Style): string {
-  if (text === '') return ''
+export function encodeFragment(text: string, style: Style, guided: Guided | null = null): string {
+  if (guided ? untouched(guided) : text === '') return ''
   const payload: FragmentV1 = {
     v: CURRENT_VERSION,
-    text,
+    ...(guided ? { kind: guided.kind, fields: carried(guided) } : { text }),
     style: {
       shape: style.shape,
       foreground: style.foreground,
@@ -117,6 +135,7 @@ function decodeV1(candidate: FragmentV1): RestoredConfiguration {
     typeof candidate.style === 'object' && candidate.style !== null ? candidate.style : {}
   return {
     text: typeof candidate.text === 'string' ? candidate.text : '',
+    guided: decodeGuided(candidate.kind, candidate.fields),
     style: {
       ...base,
       shape: isShape(rawStyle.shape) ? rawStyle.shape : base.shape,
@@ -125,6 +144,38 @@ function decodeV1(candidate: FragmentV1): RestoredConfiguration {
       logo: null,
     },
   }
+}
+
+function nonEmpty(fields: Fields): Fields {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ''))
+}
+
+/**
+ * The fields that travel in the link. An open WiFi network sends no
+ * password, even one typed before the network was set to open: the code
+ * does not carry it, so the link must not either.
+ */
+function carried(guided: Guided): Fields {
+  const fields = nonEmpty(guided.fields)
+  if (guided.kind === 'wifi' && fields.security === 'nopass') delete fields.password
+  return fields
+}
+
+/**
+ * Only the keys a form of this kind has, and only strings: a link is input
+ * from anywhere, and what it names is never trusted past that.
+ */
+function decodeGuided(kind: unknown, fields: unknown): Guided | null {
+  if (!GUIDED_KINDS.includes(kind as GuidedKind)) return null
+  const known = kind as GuidedKind
+  const raw =
+    typeof fields === 'object' && fields !== null ? (fields as Record<string, unknown>) : {}
+  const restored: Fields = { ...emptyFields()[known] }
+  for (const spec of SPECS[known]) {
+    const value = raw[spec.key]
+    if (typeof value === 'string') restored[spec.key] = value
+  }
+  return { kind: known, fields: restored }
 }
 
 function isShape(value: unknown): value is Shape {

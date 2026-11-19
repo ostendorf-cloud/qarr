@@ -49,6 +49,11 @@
 - Shareable as a URL: a vCard or a SEPA payload is heavier than free text. The fragment can grow
   uncomfortable to paste into a chat or a ticket well before it grows past what a browser
   accepts.
+- Built: `web/src/qr/guided` holds one encoder per format, each naming its standard. The fragment
+  keeps version 1 and gains optional `kind` and `fields`, so every link handed out still opens.
+  The fragment carries the entries of the form, not the built string, so the string is always
+  made by the current encoder. See AGENTS.md, "Guided input", for the rules and what is not
+  checked.
 
 ### Saved templates
 

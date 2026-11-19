@@ -108,6 +108,66 @@ describe('decodeFragment', () => {
   })
 })
 
+describe('a guided kind in the fragment', () => {
+  it('round trips the kind and its fields, and carries no free text', () => {
+    const guided = { kind: 'sepa' as const, fields: { name: 'Max Müller', iban: 'DE89', bic: '' } }
+
+    const fragment = encodeFragment('ignored', defaultStyle(), guided)
+    const restored = decodeFragment(fragment)
+
+    expect(restored?.guided).toEqual({
+      kind: 'sepa',
+      fields: { name: 'Max Müller', iban: 'DE89' },
+    })
+    expect(restored?.text).toBe('')
+    expect(decodeURIComponent(fragment)).not.toContain('ignored')
+  })
+
+  it('leaves a typed WiFi password out of the link once the network is open', () => {
+    const open = encodeFragment('', defaultStyle(), {
+      kind: 'wifi',
+      fields: { security: 'nopass', ssid: 'Guest', password: 'hunter2hunter2' },
+    })
+    expect(decodeURIComponent(open)).not.toContain('hunter2')
+    expect(decodeFragment(open)?.guided?.fields).toEqual({ security: 'nopass', ssid: 'Guest' })
+
+    const closed = encodeFragment('', defaultStyle(), {
+      kind: 'wifi',
+      fields: { security: 'WPA', ssid: 'Guest', password: 'hunter2hunter2' },
+    })
+    expect(decodeURIComponent(closed)).toContain('hunter2')
+  })
+
+  it('encodes nothing for a form nobody filled in, apart from its starting values', () => {
+    expect(encodeFragment('', defaultStyle(), { kind: 'wifi', fields: { security: 'WPA' } })).toBe(
+      '',
+    )
+    expect(encodeFragment('', defaultStyle(), { kind: 'tel', fields: { number: '' } })).toBe('')
+  })
+
+  it('opens a link written before guided kinds existed as free text', () => {
+    const older = '{"v":1,"text":"hello","style":{"shape":"round"}}'
+
+    const restored = decodeFragment(encodeURIComponent(older))
+
+    expect(restored?.guided).toBeNull()
+    expect(restored?.text).toBe('hello')
+  })
+
+  it('ignores a kind it does not know and keeps only strings of known fields', () => {
+    const unknown = '{"v":1,"text":"hi","kind":"hologram","fields":{"x":"y"}}'
+    expect(decodeFragment(encodeURIComponent(unknown))?.guided).toBeNull()
+
+    const odd = '{"v":1,"kind":"tel","fields":{"number":5,"extra":"x"}}'
+    expect(decodeFragment(encodeURIComponent(odd))?.guided).toEqual({ kind: 'tel', fields: {} })
+  })
+
+  it('measures its own length, for the warning about a long link', () => {
+    const guided = { kind: 'vcard' as const, fields: { note: 'x'.repeat(700) } }
+    expect(fragmentLength('', defaultStyle(), guided)).toBeGreaterThan(COMFORTABLE_FRAGMENT_LENGTH)
+  })
+})
+
 describe('fragmentLength', () => {
   it('matches the length encodeFragment produces', () => {
     const style = defaultStyle()

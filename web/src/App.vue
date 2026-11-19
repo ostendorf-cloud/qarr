@@ -17,17 +17,19 @@ import {
 
 import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
+import { useQarrText } from './i18n/messages'
 import { useQrCode } from './composables/useQrCode'
-import { useUrlFragment } from './composables/useUrlFragment'
+import { guidedOf, useUrlFragment } from './composables/useUrlFragment'
 import { COMFORTABLE_FRAGMENT_LENGTH, encodeFragment } from './url/fragment'
 
 const language = useLanguage()
+const { t } = useQarrText()
 const privacyHref = computed(() =>
   legalPath('privacy', isLocaleCode(language.locale.value) ? language.locale.value : 'en'),
 )
 
 const code = useQrCode()
-const fragment = useUrlFragment(code.text, code.style)
+const fragment = useUrlFragment(code.text, code.style, code)
 const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGMENT_LENGTH)
 
 // Every language is its own prerendered page, so a language change goes to
@@ -35,7 +37,7 @@ const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGM
 // it travels along. It is encoded from the current text and style rather than
 // read from the address bar, which lags the last keystroke by the debounce.
 function onLanguageChange(next: string): void {
-  const encoded = encodeFragment(code.text.value, code.style.value)
+  const encoded = encodeFragment(code.text.value, code.style.value, guidedOf(code))
   window.location.assign(`/${next}/${encoded ? `#${encoded}` : ''}`)
 }
 </script>
@@ -48,8 +50,9 @@ function onLanguageChange(next: string): void {
       <GovueLanguageSwitch @change="onLanguageChange" />
     </template>
   </GovueHeader>
-  <!-- The page text of qarr itself is English only for now. The header and
-       the footer follow the language of the address. -->
+  <!-- The page text of qarr itself is English only for now, apart from the
+       guided input and the sentence on what the address carries. The header
+       and the footer follow the language of the address. -->
   <GovuePage
     lang="en"
     width="shell"
@@ -60,11 +63,7 @@ function onLanguageChange(next: string): void {
       Nothing typed here leaves this tab: the code is drawn on a canvas in your browser, not on a
       server.
     </p>
-    <p class="text-base text-text">
-      This page's own address carries the text, colours and shape, so copying it shares exactly that
-      part of the style; it is only as private as wherever that address is pasted. A logo you add
-      stays in this browser and never travels in the link.
-    </p>
+    <p :lang="language.locale.value" class="text-base text-text">{{ t('page.address') }}</p>
     <p v-if="fragmentTooLong" role="status" class="text-sm text-warning-text">
       This address has grown long enough that pasting it may look awkward in a chat message or a
       ticket.
@@ -72,7 +71,15 @@ function onLanguageChange(next: string): void {
 
     <div class="grid gap-6 lg:grid-cols-2">
       <GovueCard title="Your code" as="section">
-        <QrForm v-model:text="code.text.value" v-model:qr-style="code.style.value" />
+        <QrForm
+          v-model:text="code.text.value"
+          v-model:kind="code.kind.value"
+          v-model:fields="code.fields.value"
+          v-model:qr-style="code.style.value"
+          :errors="code.errors.value"
+          :notice="code.notice.value"
+          @switch-kind="code.switchKind"
+        />
       </GovueCard>
 
       <GovueCard title="Preview" as="section">

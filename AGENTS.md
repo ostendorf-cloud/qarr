@@ -120,6 +120,37 @@ the fragment of the page's own address, and decodes it back. See
   for a whole URL). The warning shows on the page itself as soon as the threshold is crossed, so
   it is seen before the address is copied anywhere, not after.
 
+## Guided input
+
+`web/src/qr/guided` turns a kind and the strings of its form into the text a scanner reads. One
+file per format, each naming its standard in the header comment; `index.ts` holds the kinds, the
+field list of each form (`SPECS`) and `serialize`. Everything is pure and runs in the tab.
+
+- WiFi (ZXing "Barcode Contents", `WIFI:`), vCard 3.0 (RFC 2426), iCalendar VEVENT (RFC 5545),
+  `tel:` (RFC 3966) and the EPC QR code for SEPA (EPC069-12, version 002, UTF-8, SCT).
+- An encoder returns `{ ok, payload }` or an error code per field. It writes no prose: the code
+  maps to a message in `web/src/i18n/messages.ts`, German and English, merged into govue's
+  language layer under `qarr`. Only the guided input is translated so far, the rest of the start
+  page stays English (see "Legal pages").
+- The fragment keeps `v: 1` and gains optional `kind` and `fields`. A link without them is free
+  text. Only the active kind's non-empty fields travel, and only keys the form knows are restored.
+- A switch of type keeps what can be kept: a field with the same `carry` name moves over, every
+  form keeps its own entries for the way back, and `useQrCode().notice` names what was left
+  behind. The page says it in a status line.
+- `web/src/qr/matrix.ts` sets the encoder's byte conversion to UTF-8. The library default drops
+  the high byte of every UTF-16 unit, which corrupts anything beyond ASCII and breaks the EPC
+  code's UTF-8 claim. A test decodes a code per kind with non-ASCII text.
+- An error shows at its field once the field was left, never before.
+- The appointment's DTSTAMP is the time the string is built, so the code of an appointment
+  differs between two openings of the same link. Its UID is a hash of the event's fields.
+- The entries are plain text in the link. The forms say so at the WiFi password and the IBAN,
+  and the privacy page says a copied link and the history keep them. An open WiFi network
+  carries no password in the link. The BIC is required outside the EEA (EPC069-12 v3.1).
+- A `(0)` right after a country code in a phone number is dropped, any other `(0)` is refused.
+- Not checked: that an IBAN has the length its country fixes (only the MOD 97 check), that a
+  WiFi network name made of hex digits is read as text by every phone, and any BIC against a
+  directory.
+
 ## Page view counting
 
 The server reports page views to Umami through govue's `analytics` package. Nothing is built
@@ -163,14 +194,12 @@ Nothing govue provides is built here: `language.HandleLegal`, `GovueLegalPage` a
 Implemented: the entry point and its two listeners, the health/readiness/metrics admin surface,
 the SPA shell and its theme, the Helm chart, the CI set that checks all of it, encoding, drawing,
 the logo and error correction repair, the decode check, the PNG/SVG download, and the
-configuration living in the page URL fragment.
+configuration living in the page URL fragment, and guided input for WiFi, vCard, an appointment,
+a telephone number and a SEPA transfer.
 
 Not implemented yet, later milestones:
 
 - The bucket client for preset logos, and every API route.
-- Guided input for WiFi, vCard, an appointment, a telephone number or a SEPA transfer, instead
-  of free text. The fragment format is built to grow a field for this without breaking a link
-  already handed out.
 - Saved templates, kept in the browser with no account and no server-side storage.
 - Batch generation and a print sheet: CSV in, many codes out, as an archive or a cut-marked PDF
   sheet.

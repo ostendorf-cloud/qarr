@@ -16,6 +16,12 @@
 
 import qrcode from 'qrcode-generator'
 
+// The library's default turns every UTF-16 unit into one byte and drops the
+// high half, which corrupts anything beyond ASCII. Readers, and the EPC
+// SEPA format, expect UTF-8 in the byte mode.
+const utf8 = new TextEncoder()
+qrcode.stringToBytes = (s: string): number[] => Array.from(utf8.encode(s))
+
 /** Error correction, by the standard's own letters. */
 export type Level = 'L' | 'M' | 'Q' | 'H'
 
