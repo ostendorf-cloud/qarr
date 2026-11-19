@@ -58,6 +58,13 @@ func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) (http.Han
 	// "GET /{$}" matches the root alone, so a prefixed path never reaches
 	// the redirect.
 	mux.Handle("GET /{$}", redirect)
+	// Without a method, the root would fall to the file server below for
+	// every method but GET and HEAD, which answered a POST with the raw
+	// template. The redirect answers 405 itself, but only for GET and HEAD.
+	mux.Handle("/{$}", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Allow", "GET, HEAD")
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+	}))
 	s.mount(mux)
 	// qarr sells nothing, so Terms stays off: /terms and /agb answer 404
 	// instead of redirecting to a page that does not exist. The method-less

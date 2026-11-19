@@ -194,6 +194,30 @@ func TestHandler_LegalRoutesRedirectToTheMatchingLocalePage(t *testing.T) {
 	}
 }
 
+func TestHandler_RootAnswers405ForEveryMethodButGetAndHead(t *testing.T) {
+	t.Parallel()
+
+	h := newHandler(t, siteFS())
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch} {
+		req := httptest.NewRequestWithContext(t.Context(), method, "/", nil)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusMethodNotAllowed || rec.Header().Get("Allow") != "GET, HEAD" {
+			t.Errorf("%s / = %d Allow %q, want 405 with GET, HEAD", method, rec.Code, rec.Header().Get("Allow"))
+		}
+		if strings.Contains(rec.Body.String(), "template") {
+			t.Errorf("%s / leaked the template: %q", method, rec.Body.String())
+		}
+	}
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodHead, "/", nil)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusFound {
+		t.Errorf("HEAD / = %d, want 302", rec.Code)
+	}
+}
+
 func TestHandler_FailsWhenTheSiteIsIncomplete(t *testing.T) {
 	t.Parallel()
 
@@ -210,7 +234,11 @@ func TestHandler_FailsWhenTheSiteIsIncomplete(t *testing.T) {
 	cases := map[string]fstest.MapFS{
 		"no sitemap":                without("sitemap.xml"),
 		"a listed page missing":     without("en/privacy/index.html"),
-		"no privacy page":           withSitemap(append(append([]string{}, allLocs[:4]...), "https://qarr.test/de/", "https://qarr.test/en/")...),
+		"no privacy page":           withSitemap(allLocs[:4]...),
+		"no German privacy page":    withSitemap(append(append([]string{}, allLocs[:4]...), allLocs[5])...),
+		"no imprint page":           withSitemap(append(append([]string{}, allLocs[:2]...), allLocs[4:]...)...),
+		"no start page":             withSitemap(allLocs[2:]...),
+		"no German start page":      withSitemap(allLocs[1:]...),
 		"a path outside a language": withSitemap(append(append([]string{}, allLocs...), "https://qarr.test/de/a/b")...),
 		"a loc with a query":        withSitemap(append(append([]string{}, allLocs...), "https://qarr.test/de/imprint?x=1")...),
 		"an unknown language":       withSitemap(append(append([]string{}, allLocs...), "https://qarr.test/fr/")...),

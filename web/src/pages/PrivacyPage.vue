@@ -76,8 +76,7 @@ const { locale } = useLanguage()
       <p>
         Die Anwendung schreibt kein Zugriffsprotokoll. Sie protokolliert weder Anfragen noch
         IP-Adressen noch Pfade. Sie protokolliert Start, Beenden und Fehler. Ein Fehlereintrag
-        enthält die HTTP-Methode und eine zufällige Anfrage-Kennung, nie eine Adresse oder einen
-        Pfad.
+        enthält keine Adresse und keinen Pfad.
       </p>
 
       <h2 class="text-xl font-semibold">Ihre Rechte</h2>
@@ -156,8 +155,7 @@ const { locale } = useLanguage()
       <h2 class="text-xl font-semibold">Server logs</h2>
       <p>
         The application writes no access log. It does not log requests, IP addresses or paths. It
-        logs start, stop and errors. An error entry holds the HTTP method and a random request id,
-        never an address or a path.
+        logs start, stop and errors. An error entry holds no address and no path.
       </p>
 
       <h2 class="text-xl font-semibold">Your rights</h2>

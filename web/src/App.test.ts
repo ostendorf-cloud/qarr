@@ -92,6 +92,26 @@ describe('App', () => {
     expect(assign).toHaveBeenCalledWith('/de/')
   })
 
+  it('carries the current text and style to the other language, even before the address catches up', async () => {
+    const assign = vi.fn()
+    vi.spyOn(window, 'location', 'get').mockReturnValue({
+      ...window.location,
+      assign,
+    })
+    renderApp('en')
+
+    // No timer runs: the address bar has not caught up with this keystroke.
+    await fireEvent.update(
+      screen.getByPlaceholderText('https://example.org'),
+      'https://qarr.example/a',
+    )
+    await fireEvent.update(screen.getByRole('combobox', { name: /language/i }), 'de')
+
+    expect(assign).toHaveBeenCalledWith(
+      `/de/#${encodeFragment('https://qarr.example/a', defaultStyle())}`,
+    )
+  })
+
   it('offers a skip link as the first focusable element', () => {
     render(App)
 

@@ -2,7 +2,8 @@
 #
 # Starts the container image given as $1 and asserts it actually serves
 # something real: health, readiness and metrics on the admin listener, the
-# built SPA's index.html on the public one, and that the public listener
+# prerendered pages on the public one (the root redirect, the start pages and
+# the legal pages), and that the public listener
 # itself does not answer /metrics. Run by the docker-build job in
 # .github/workflows/checks.yaml right after it builds and loads the image,
 # so this never needs a registry.
@@ -101,8 +102,17 @@ assert_status "/metrics" "200" "$admin_url"
 # Ingress or HTTPRoute.
 assert_status "/metrics" "404"
 
-assert_status "/" "200"
-assert_contains "/" "<html"
+# "/" redirects to the start page of the visitor's language, the legal short
+# paths redirect to the locale page, and qarr has no terms. curl does not
+# follow redirects here, so the status is the redirect's own.
+assert_status "/" "302"
+assert_status "/impressum" "302"
+assert_status "/agb" "404"
+
+for page in /de/ /en/ /de/imprint /en/privacy; do
+  assert_status "$page" "200"
+  assert_contains "$page" "<html"
+done
 
 if [[ $fail -ne 0 ]]; then
   echo "smoke test failed" >&2

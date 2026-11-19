@@ -16,8 +16,8 @@ The global baseline already applies here and is not repeated below.
   that `web/pnpm-lock.yaml`'s own resolution of it still carries govue's Vue package
   subdirectory. A generic pattern, not qarr's own domain logic.
 - `web/` is the Vue single page application, consuming govue's Vue package as a pnpm git
-  dependency. One placeholder page today; see "What this app will become" below for what grows
-  here.
+  dependency. One start page and the imprint and privacy pages, prerendered in German and
+  English, see "Legal pages" below; see "What this app will become" for what grows here.
 - `charts/qarr/` is the Helm chart that installs this service on a Kubernetes cluster.
 
 ## A build needs the frontend first

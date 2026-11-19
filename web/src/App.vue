@@ -19,7 +19,7 @@ import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
 import { useQrCode } from './composables/useQrCode'
 import { useUrlFragment } from './composables/useUrlFragment'
-import { COMFORTABLE_FRAGMENT_LENGTH } from './url/fragment'
+import { COMFORTABLE_FRAGMENT_LENGTH, encodeFragment } from './url/fragment'
 
 const language = useLanguage()
 const privacyHref = computed(() =>
@@ -31,10 +31,12 @@ const fragment = useUrlFragment(code.text, code.style)
 const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGMENT_LENGTH)
 
 // Every language is its own prerendered page, so a language change goes to
-// the start page of that language. The form text is not carried over: it
-// lives in the address fragment, which a new page load drops.
+// the start page of that language. The fragment is the state of the page, so
+// it travels along. It is encoded from the current text and style rather than
+// read from the address bar, which lags the last keystroke by the debounce.
 function onLanguageChange(next: string): void {
-  window.location.assign(`/${next}/`)
+  const encoded = encodeFragment(code.text.value, code.style.value)
+  window.location.assign(`/${next}/${encoded ? `#${encoded}` : ''}`)
 }
 </script>
 
