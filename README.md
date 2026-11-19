@@ -28,6 +28,30 @@ and metrics on a second, administrative listener, never on the public one.
 | `ADDR` | Address the public HTTP server listens on | `:8080` |
 | `ADMIN_ADDR` | Address govue's admin listener listens on: `/healthz`, `/readyz` and `/metrics` | `:8081` |
 | `LOG_LEVEL` | `debug`, `info`, `warn` or `error` | `info` |
+| `UMAMI_URL` | Base URL of a Umami instance; page views are reported to it from the server | unset |
+| `UMAMI_WEBSITE_ID` | Umami website id (a UUID) | unset |
+| `SITE_HOST` | Public host sent to Umami; required when counting is on | unset |
+| `TRUSTED_PROXIES` | Comma separated CIDRs of the proxies in front of qarr; without them, behind a proxy, no view is counted | unset |
+| `UMAMI_TIMEOUT`, `UMAMI_QUEUE_SIZE` | Optional govue settings: post timeout and queue size | `5s`, `256` |
+
+## Privacy and page view counting
+
+Counting is off unless `UMAMI_URL` and `UMAMI_WEBSITE_ID` are both set. Setting only one stops
+the start.
+
+- What you type into a QR code is not sent to the server. The code is drawn in the browser, the
+  page makes no request with it, and the page address keeps it in the fragment, which a browser
+  never sends. It does stay in the browser, including its history.
+- With counting on, the server reports one page view to Umami after it served the page.
+  Counting needs no script in the browser, sets no cookie and stores nothing on the device.
+- Reported: the page as the route pattern (always `/`), never the path or a query string, the
+  origin of the referring site, the browser language, the user agent and the client address
+  shortened to its first three bytes (IPv4) or six (IPv6). Umami derives country, region and
+  city from the shortened address.
+- Not counted: a visitor who sends Do Not Track or Global Privacy Control, prefetch, assets,
+  health and metrics routes, and anything that is not a successful HTML page.
+- Who runs the Umami instance, how long it keeps the data and the legal basis are the operator's
+  statements, not this repository's. The page states what the software does and no more.
 
 ## Container
 

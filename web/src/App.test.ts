@@ -43,6 +43,22 @@ describe('App', () => {
     expect(screen.getByText(/nothing typed here leaves this tab/i)).toBeVisible()
   })
 
+  it('states what page view counting reports and what it leaves out', () => {
+    render(App)
+
+    const privacy = screen.getByRole('heading', { name: 'Privacy' }).closest('section')
+    expect(privacy).not.toBeNull()
+    const text = privacy?.textContent ?? ''
+    expect(text).toMatch(/not sent to the server/i)
+    expect(text).toMatch(/including its history/i)
+    expect(text).toMatch(/needs no script in your browser and sets no cookie/i)
+    expect(text).toMatch(/derives country, region and city/i)
+    expect(text).not.toMatch(/never leaves this tab/i)
+    expect(text).toMatch(/never the address you typed or a query/i)
+    expect(text).toMatch(/shortened/i)
+    expect(text).toMatch(/Do Not Track or Global Privacy Control/)
+  })
+
   it('offers a skip link as the first focusable element', () => {
     render(App)
 

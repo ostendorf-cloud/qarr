@@ -61,6 +61,36 @@ const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGM
         />
       </GovueCard>
     </div>
+
+    <GovueCard id="privacy" title="Privacy" as="section">
+      <p class="text-base text-text">
+        What you type into a code is not sent to the server. The page encodes it in the part of the
+        address after the #, which a browser never sends. It stays in your browser, including its
+        history, and it is only as private as wherever you paste the address.
+      </p>
+      <p class="mt-3 text-base text-text">
+        The server counts visits only if its operator has switched that on. If so, it reports one
+        page view to Umami after it served this page. Counting needs no script in your browser and
+        sets no cookie. It stores nothing on your device.
+      </p>
+      <p class="mt-3 text-base text-text">What a counted view holds:</p>
+      <ul class="mt-1 list-disc pl-6 text-base text-text">
+        <li>the page, as the fixed name "/", never the address you typed or a query</li>
+        <li>the site you came from, its name only and no path</li>
+        <li>your browser language and your browser's user agent</li>
+        <li>
+          your IP address, shortened before it is sent to its first three bytes (IPv4) or six bytes
+          (IPv6)
+        </li>
+      </ul>
+      <p class="mt-3 text-base text-text">
+        Umami derives country, region and city from the shortened address.
+      </p>
+      <p class="mt-3 text-base text-text">
+        Nobody is counted who sends Do Not Track or Global Privacy Control. Prefetches, files and
+        pages that failed are not counted either.
+      </p>
+    </GovueCard>
   </GovuePage>
   <GovueFooter note="qarr" />
 </template>

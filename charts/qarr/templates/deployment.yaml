@@ -68,6 +68,22 @@ spec:
               value: {{ .Values.config.adminListenAddr | quote }}
             - name: LOG_LEVEL
               value: {{ .Values.config.logLevel | quote }}
+            {{- with .Values.config.trustedProxies }}
+            - name: TRUSTED_PROXIES
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.config.siteHost }}
+            - name: SITE_HOST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.config.umami.url }}
+            - name: UMAMI_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.config.umami.websiteId }}
+            - name: UMAMI_WEBSITE_ID
+              value: {{ . | quote }}
+            {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:

@@ -26,7 +26,7 @@ func TestHandler_ServesTheEmbeddedSPA(t *testing.T) {
 		"index.html": {Data: []byte("<!doctype html><title>qarr</title>")},
 	}
 
-	handler := webapp.Handler(fs.FS(dist), testLogger())
+	handler := webapp.Handler(fs.FS(dist), testLogger(), nil)
 
 	req := httptest.NewRequestWithContext(t.Context(), "GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -44,7 +44,7 @@ func TestHandler_RecoversFromAPanic(t *testing.T) {
 	t.Parallel()
 
 	dist := fstest.MapFS{"index.html": {Data: []byte("ok")}}
-	handler := webapp.Handler(fs.FS(dist), testLogger())
+	handler := webapp.Handler(fs.FS(dist), testLogger(), nil)
 
 	// A request for a path http.FileServerFS cannot serve without panicking
 	// is not exercised here; Recover's own contract is covered by govue's
