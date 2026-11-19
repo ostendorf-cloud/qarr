@@ -9,6 +9,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/netip"
+
+	"github.com/ostendorf-cloud/govue/analytics"
+	"github.com/ostendorf-cloud/govue/clientip"
 )
 
 // Config is every setting qarr reads from the environment.
@@ -20,6 +24,16 @@ type Config struct {
 	AdminAddr string
 	// LogLevel is one of "debug", "info", "warn" or "error".
 	LogLevel string
+	// Umami is govue's page view counting. It is off unless UMAMI_URL and
+	// UMAMI_WEBSITE_ID are both set; one of the two alone is an error.
+	Umami analytics.Config
+	// SiteHost is the public host of this deployment, sent to Umami as the
+	// hostname of every view. Required when counting is on.
+	SiteHost string
+	// TrustedProxies are the proxies whose X-Forwarded-For is believed when
+	// the client address is resolved. Behind an ingress without it every
+	// view comes from the proxy and none is counted.
+	TrustedProxies []netip.Prefix
 }
 
 // validLogLevels are the values LogLevel accepts.
@@ -42,6 +56,21 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	var problems []error
+
+	umami, err := analytics.LoadConfig(getenv)
+	if err != nil {
+		problems = append(problems, err)
+	}
+	cfg.Umami = umami
+	cfg.SiteHost = getenv("SITE_HOST")
+	if cfg.Umami.Enabled() && cfg.SiteHost == "" {
+		problems = append(problems, errors.New("SITE_HOST: required when UMAMI_URL and UMAMI_WEBSITE_ID are set"))
+	}
+	proxies, err := clientip.ParseCIDRs(getenv("TRUSTED_PROXIES"))
+	if err != nil {
+		problems = append(problems, fmt.Errorf("TRUSTED_PROXIES: %w", err))
+	}
+	cfg.TrustedProxies = proxies
 	if !validLogLevels[cfg.LogLevel] {
 		problems = append(problems, fmt.Errorf("LOG_LEVEL: %q is not one of debug, info, warn, error", cfg.LogLevel))
 	}

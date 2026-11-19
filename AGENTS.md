@@ -120,6 +120,21 @@ the fragment of the page's own address, and decodes it back. See
   for a whole URL). The warning shows on the page itself as soon as the threshold is crossed, so
   it is seen before the address is copied anywhere, not after.
 
+## Page view counting
+
+The server reports page views to Umami through govue's `analytics` package. Nothing is built
+here that govue provides. Off unless `UMAMI_URL` and `UMAMI_WEBSITE_ID` are both set.
+
+- `internal/webapp.Handler` puts `views.Middleware` innermost, directly around the mux, because
+  it reads `r.Pattern`. The only pattern is `/`, so the one reported URL is `/`: what a user
+  encodes can be in a path or a query only by hand, and is never reported. Moving the middleware
+  outside `RequestID` loses the pattern and counts nothing; `analytics_test.go` fails then.
+- A new public route is registered on the mux with a pattern. A page with a variable part in its
+  path reports the pattern, not the value. An API route needs `Options.Skip`.
+- `TRUSTED_PROXIES` must name the ingress, or every view comes from the proxy and none counts.
+- A change to what is reported needs an update of the privacy card in `web/src/App.vue` and the
+  README section "Privacy and page view counting".
+
 ## Scope of this milestone
 
 Implemented: the entry point and its two listeners, the health/readiness/metrics admin surface,

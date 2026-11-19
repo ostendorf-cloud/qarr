@@ -4,10 +4,55 @@
 package config_test
 
 import (
+	"net/netip"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ostendorf-cloud/qarr/internal/config"
 )
+
+const (
+	umamiURL = "https://umami.example.test"
+	umamiID  = "0a1b2c3d-0000-4000-8000-000000000001"
+)
+
+func TestLoad_Umami(t *testing.T) {
+	t.Parallel()
+
+	off, err := config.Load(env(nil))
+	if err != nil || off.Umami.Enabled() {
+		t.Fatalf("no UMAMI_ variables: enabled = %v, err = %v, want off and no error", off.Umami.Enabled(), err)
+	}
+
+	on, err := config.Load(env(map[string]string{
+		"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID, "SITE_HOST": "qarr.example.test",
+		"TRUSTED_PROXIES": "10.0.0.0/8",
+	}))
+	if err != nil {
+		t.Fatalf("Load() with the full set: %v", err)
+	}
+	if !on.Umami.Enabled() || on.SiteHost != "qarr.example.test" {
+		t.Fatalf("Load() = %+v, want counting on for qarr.example.test", on)
+	}
+	if want := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}; !reflect.DeepEqual(on.TrustedProxies, want) {
+		t.Fatalf("TrustedProxies = %v, want %v", on.TrustedProxies, want)
+	}
+
+	bad := map[string]map[string]string{
+		"url only":          {"UMAMI_URL": umamiURL},
+		"id only":           {"UMAMI_WEBSITE_ID": umamiID},
+		"no site host":      {"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID},
+		"bad trusted proxy": {"TRUSTED_PROXIES": "not-a-cidr"},
+	}
+	for name, values := range bad {
+		if _, err := config.Load(env(values)); err == nil {
+			t.Errorf("%s: Load() = nil error, want one", name)
+		} else if strings.Contains(err.Error(), umamiURL) {
+			t.Errorf("%s: error repeats the Umami URL: %v", name, err)
+		}
+	}
+}
 
 // env builds a getenv function from a map, the shape config.Load expects.
 func env(values map[string]string) func(string) string {
@@ -74,7 +119,10 @@ func TestLoad(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Load() returned unexpected error: %v", err)
 			}
-			if got != tc.want {
+			// The Umami defaults (timeout, queue size) are govue's own and
+			// are covered by TestLoad_Umami, not repeated in every row.
+			got.Umami = tc.want.Umami
+			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("Load() = %+v, want %+v", got, tc.want)
 			}
 		})

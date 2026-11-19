@@ -85,7 +85,20 @@
       "properties": {
         "listenAddr": { "type": "string", "minLength": 1 },
         "adminListenAddr": { "type": "string", "minLength": 1 },
-        "logLevel": { "type": "string", "enum": ["debug", "info", "warn", "error"] }
+        "logLevel": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
+        "trustedProxies": { "type": "string" },
+        "siteHost": { "type": "string", "pattern": "^[^/@?# ]*$" },
+        "umami": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "url": { "type": "string", "pattern": "^(https?://.*)?$" },
+            "websiteId": {
+              "type": "string",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$"
+            }
+          }
+        }
       }
     }
   }

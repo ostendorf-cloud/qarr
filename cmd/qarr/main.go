@@ -14,7 +14,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/ostendorf-cloud/govue/analytics"
+	"github.com/ostendorf-cloud/govue/clientip"
 	"github.com/ostendorf-cloud/govue/health"
 	"github.com/ostendorf-cloud/govue/httpserver"
 	"github.com/ostendorf-cloud/govue/metrics"
@@ -51,13 +54,31 @@ func run() error {
 	healthRegistry := health.New()
 	metricsRegistry := metrics.NewRegistry()
 
-	handler := webapp.Handler(dist, logger)
+	views, err := analytics.New(cfg.Umami, analytics.Options{
+		Hostname: cfg.SiteHost,
+		Logger:   logger,
+		ClientIP: clientip.NewResolver(cfg.TrustedProxies),
+		OnDrop: metrics.NewCounter(metricsRegistry, "analytics_views_dropped_total",
+			"Page views lost to a full queue or a shutdown before they reached Umami."),
+	})
+	if err != nil {
+		return fmt.Errorf("qarr: %w", err)
+	}
+	// govue logs only failures, so the one startup line is ours. It names
+	// no URL, which an operator may have put a secret into.
+	if views.Enabled() {
+		logger.Info("page view counting is on", "site_host", cfg.SiteHost)
+	} else {
+		logger.Info("page view counting is off: UMAMI_URL and UMAMI_WEBSITE_ID are not set")
+	}
+
+	handler := webapp.Handler(dist, logger, views)
 	adminHandler := webapp.AdminHandler(healthRegistry, metricsRegistry, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	return httpserver.RunAdmin(ctx, httpserver.Config{
+	runErr := httpserver.RunAdmin(ctx, httpserver.Config{
 		Addr:    cfg.Addr,
 		Handler: handler,
 		Logger:  logger,
@@ -69,7 +90,19 @@ func run() error {
 		Addr:    cfg.AdminAddr,
 		Handler: adminHandler,
 	})
+
+	// The server has stopped: send the views still queued, within a bound.
+	closeCtx, cancel := context.WithTimeout(context.Background(), analyticsCloseTimeout)
+	defer cancel()
+	if err := views.Close(closeCtx); err != nil {
+		logger.Warn("page views still queued at shutdown were not all sent")
+	}
+	return runErr
 }
+
+// analyticsCloseTimeout bounds how long shutdown waits for queued page
+// views to reach Umami.
+const analyticsCloseTimeout = 5 * time.Second
 
 // parseLevel maps config's own level names onto slog.Level. config.Load
 // already rejects any value other than the four below, so the default case

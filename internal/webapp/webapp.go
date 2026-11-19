@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/ostendorf-cloud/govue/analytics"
 	"github.com/ostendorf-cloud/govue/health"
 	"github.com/ostendorf-cloud/govue/metrics"
 	"github.com/ostendorf-cloud/govue/middleware"
@@ -22,14 +23,24 @@ import (
 // http.FileServerFS, wrapped in Recover and RequestID. Recover sits
 // outermost so it catches a panic from anything below it, RequestID
 // included; see govue's own example/app.go for why.
-func Handler(dist fs.FS, logger *slog.Logger) http.Handler {
+//
+// views counts page views. It sits innermost, directly around the mux,
+// because it reads r.Pattern, which only the mux sets and which RequestID's
+// WithContext would hide from anything outside it. The only pattern is "/",
+// so a counted view is reported as "/" and nothing else: the path and the
+// query of the request never leave the process. A nil views counts nothing.
+func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServerFS(dist))
 
-	return middleware.Chain(mux,
+	chain := []middleware.Middleware{
 		middleware.Recover(logger),
 		middleware.RequestID(logger),
-	)
+	}
+	if views != nil {
+		chain = append(chain, views.Middleware)
+	}
+	return middleware.Chain(mux, chain...)
 }
 
 // AdminHandler builds the admin handler govue's httpserver.RunAdmin serves

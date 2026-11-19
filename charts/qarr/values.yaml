@@ -156,3 +156,18 @@ config:
   # templates/deployment.yaml's second container port and probes.
   adminListenAddr: ":8081"
   logLevel: "info"
+  # Comma separated CIDRs of the proxies in front of qarr (TRUSTED_PROXIES),
+  # for example the ingress controller's pod network. Only their
+  # X-Forwarded-For is believed. Empty means the TCP peer is the client, which
+  # behind an ingress is the proxy, so no view would be counted.
+  trustedProxies: ""
+  # Public host of this deployment (SITE_HOST), sent to Umami as the hostname
+  # of every view. Required when umami.url and umami.websiteId are set.
+  siteHost: ""
+  # Page view counting through Umami, reported from the server. Off unless
+  # both url and websiteId are set; one alone fails the start. Neither is a
+  # secret: the website id is a public identifier and the url holds no
+  # credential (govue refuses one in it).
+  umami:
+    url: ""
+    websiteId: ""

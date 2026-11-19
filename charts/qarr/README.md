@@ -38,6 +38,10 @@ helm pull oci://ghcr.io/ostendorf-cloud/charts/qarr --version <version>
 | `config.listenAddr` | `ADDR` | `:8080` | Public listener, the embedded SPA |
 | `config.adminListenAddr` | `ADMIN_ADDR` | `:8081` | govue's admin listener: `/healthz`, `/readyz`, `/metrics` |
 | `config.logLevel` | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `config.umami.url` | `UMAMI_URL` | empty | Umami base URL; counting is on only with the website id too. Not a secret |
+| `config.umami.websiteId` | `UMAMI_WEBSITE_ID` | empty | Umami website id, a UUID. Not a secret |
+| `config.siteHost` | `SITE_HOST` | empty | Public host sent to Umami; required when counting is on |
+| `config.trustedProxies` | `TRUSTED_PROXIES` | empty | CIDRs of the proxies in front of qarr; set it behind an ingress or no view is counted |
 
 `service.port` and `service.adminPort` must match whatever port `config.listenAddr` and
 `config.adminListenAddr` themselves encode; the probes and the container ports are derived
