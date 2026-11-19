@@ -17,6 +17,7 @@ import {
 
 import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
+import TemplatePanel from './components/TemplatePanel.vue'
 import { useQarrText } from './i18n/messages'
 import { useQrCode } from './composables/useQrCode'
 import { guidedOf, useUrlFragment } from './composables/useUrlFragment'
@@ -92,6 +93,8 @@ function onLanguageChange(next: string): void {
         />
       </GovueCard>
     </div>
+
+    <TemplatePanel v-model:qr-style="code.style.value" />
 
     <p class="text-base text-text">
       What this site does with your data, including the counting of page views, is in the

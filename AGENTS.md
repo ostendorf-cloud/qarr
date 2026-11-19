@@ -151,6 +151,33 @@ field list of each form (`SPECS`) and `serialize`. Everything is pure and runs i
   WiFi network name made of hex digits is read as text by every phone, and any BIC against a
   directory.
 
+## Saved templates
+
+`web/src/templates` keeps a name, the colours, the module shape and a logo in the browser's local
+storage, with no account and no request. `TemplatePanel.vue` is the interface, with its own German
+and English texts in `templates/messages.ts` (read from govue's language layer).
+
+- Storage: local storage, not IndexedDB. The access is synchronous and the bounded sizes below fit
+  the usual 5 MB quota. The list is one record, `qarr.templates`, with no pixels. Each logo is its
+  own record, `qarr.template-logo.<id>`, as base64 RGBA.
+- Limits, all in `templates/schema.ts`: 8 templates, names of 1 to 40 characters, a stored logo of
+  at most 256 by 256 pixels (256 KB, the size `qr/logo.ts` reduces every picture to), an import
+  file of at most 4 MB. A picture chosen as a logo is refused by `qr/logo.ts` before it is read
+  if it is not a PNG, JPEG or SVG, or is over 2 MB. A save the quota refuses is reported and
+  leaves the earlier templates as they were.
+- An SVG is never put into the page. It is loaded through an Image element, where a browser runs
+  no script, and only its pixels are kept.
+- Everything read from storage or from an import file is untrusted. `parseTemplate` accepts only
+  the exact shape: strict `#rrggbb` colours, a known shape, a safe id, pixel data of exactly the
+  size the record states. An entry that fails is dropped, and its logo record is removed. A
+  mutation of those checks must fail `store.test.ts`.
+- A name that is taken gets a number: `Brand (2)`. Export writes `qarr-templates.json`, import
+  reads the same format and skips invalid entries.
+- `TemplatePanel`'s `logoBlocked` prop applies colours and shape without the logo. A SEPA code
+  must stay at error correction level M, which a logo's repair would raise, so the page sets the
+  prop while the kind is SEPA once guided input exists.
+- A change to what is stored needs an update of `web/src/pages/PrivacyPage.vue` (both languages).
+
 ## Page view counting
 
 The server reports page views to Umami through govue's `analytics` package. Nothing is built
@@ -194,13 +221,12 @@ Nothing govue provides is built here: `language.HandleLegal`, `GovueLegalPage` a
 Implemented: the entry point and its two listeners, the health/readiness/metrics admin surface,
 the SPA shell and its theme, the Helm chart, the CI set that checks all of it, encoding, drawing,
 the logo and error correction repair, the decode check, the PNG/SVG download, and the
-configuration living in the page URL fragment, and guided input for WiFi, vCard, an appointment,
-a telephone number and a SEPA transfer.
+configuration living in the page URL fragment, guided input for WiFi, vCard, an appointment, a
+telephone number and a SEPA transfer, and saved templates in the browser.
 
 Not implemented yet, later milestones:
 
 - The bucket client for preset logos, and every API route.
-- Saved templates, kept in the browser with no account and no server-side storage.
 - Batch generation and a print sheet: CSV in, many codes out, as an archive or a cut-marked PDF
   sheet.
 

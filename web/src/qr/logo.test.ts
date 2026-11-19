@@ -10,11 +10,21 @@ afterEach(() => {
 })
 
 /** A tiny file whose declared size is what fromFile checks, not its bytes. */
-function fileOfSize(bytes: number): File {
-  return { size: bytes, name: 'logo.png' } as unknown as File
+function fileOfSize(bytes: number, type = 'image/png'): File {
+  return { size: bytes, name: 'logo.png', type } as unknown as File
 }
 
 describe('fromFile', () => {
+  it.each(['image/gif', 'image/webp', 'text/html', 'application/pdf', ''])(
+    'refuses the type %j before reading anything',
+    async (type) => {
+      const read = vi.spyOn(FileReader.prototype, 'readAsDataURL')
+
+      await expect(fromFile(fileOfSize(10, type), 0.2, true)).rejects.toThrow(/PNG, JPEG or SVG/)
+      expect(read).not.toHaveBeenCalled()
+    },
+  )
+
   it('refuses a picture larger than the limit, with the limit', async () => {
     await expect(fromFile(fileOfSize(MAX_LOGO_BYTES + 1), 0.2, true)).rejects.toThrow(ImageError)
     await expect(fromFile(fileOfSize(MAX_LOGO_BYTES + 1), 0.2, true)).rejects.toThrow(/KB/)

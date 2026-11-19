@@ -96,6 +96,18 @@ describe.each(locales)('the privacy page in %s', (locale) => {
     }
   })
 
+  it('says templates and their logo data stay in the browser, how to delete them', () => {
+    show(PrivacyPage, locale)
+    const text = (screen.getByRole('main').textContent ?? '').replace(/\s+/g, ' ')
+
+    expect(text).toMatch(/qarr\.templates/)
+    if (locale === 'de') {
+      expect(text).toMatch(/Vorlage.*Bilddaten.*nie an den Server gesendet.*Löschen.*Website-Daten/)
+    } else {
+      expect(text).toMatch(/template.*image data.*never sent to the server.*Delete.*site data/)
+    }
+  })
+
   it('states the counting fields, the opt in and the signals it honours', () => {
     show(PrivacyPage, locale)
     const main = screen.getByRole('main')

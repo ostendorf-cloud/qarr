@@ -17,11 +17,14 @@ import type { Logo } from './style'
 /** The largest picture accepted. Beyond this it is not a logo. */
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024
 
+/** The picture types accepted, by the type the browser reports. */
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml']
+
 /**
  * The size the picture is reduced to before it is kept. A logo ends up a few
  * dozen pixels across in a code; holding more is memory for nothing.
  */
-const WORKING_SIZE = 256
+export const WORKING_SIZE = 256
 
 export class ImageError extends Error {
   constructor(message: string) {
@@ -70,6 +73,12 @@ function load(source: string): Promise<HTMLImageElement> {
 
 /** Checks a chosen file before it is loaded at all, and reads it as a logo. */
 export async function fromFile(file: File, fraction: number, plate: boolean): Promise<Logo> {
+  // Only these three kinds. An SVG is never put into the page: it is loaded
+  // through an Image element, where a browser runs no script, and read back
+  // as pixels, so only pixels are ever kept or stored.
+  if (!LOGO_TYPES.includes(file.type)) {
+    throw new ImageError('the picture must be a PNG, JPEG or SVG file')
+  }
   if (file.size > MAX_LOGO_BYTES) {
     throw new ImageError(`the picture must be at most ${Math.round(MAX_LOGO_BYTES / 1024)} KB`)
   }
