@@ -9,7 +9,8 @@
  * (EPC069-12), service tag BCD, version 002. Lines, separated by LF:
  *
  *   1 BCD            service tag
- *   2 002            version; BIC is optional from version 002 on
+ *   2 002            version; BIC is optional from version 002 on,
+ *                   but only for an account in the EEA (see EEA_COUNTRIES)
  *   3 1              character set, 1 is UTF-8
  *   4 SCT            identification
  *   5 BIC            optional, 8 or 11 characters
@@ -24,8 +25,9 @@
  * The whole payload is at most 331 bytes. Trailing empty lines are left out.
  * The IBAN is checked by ISO 13616 / ISO 7064 MOD 97-10: the first four
  * characters move to the end, letters become 10 to 35, and the number must
- * leave remainder 1 modulo 97. Nothing here checks that the account exists,
- * or the length a given country fixes for its IBANs.
+ * leave remainder 1 modulo 97. Nothing here checks that the account exists.
+ * Accepted risk: the length a given country fixes for its IBANs is not
+ * checked either, only the shape and the MOD 97 check above.
  */
 
 import { finish, hasControl, utf8Length, type Errors, type Fields, type Outcome } from './shared'
@@ -49,6 +51,17 @@ export function ibanChecksumOk(iban: string): boolean {
   }
   return remainder === 1
 }
+
+/**
+ * The EEA, whose accounts may leave the BIC out. EPC069-12 v3.1 makes the
+ * BIC mandatory for the SEPA countries outside the EEA (CH, GB, MC, SM, AD,
+ * VA). The EEA is the EU member states plus IS, LI and NO (EEA Agreement).
+ */
+export const EEA_COUNTRIES: readonly string[] = [
+  ...['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE'],
+  ...['IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'],
+  ...['IS', 'LI', 'NO'],
+]
 
 const IBAN_SHAPE = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/
 const BIC_SHAPE = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/
@@ -81,6 +94,9 @@ export function encodeSepa(fields: Fields): Outcome {
   else if (!ibanChecksumOk(iban)) errors.iban = { code: 'ibanChecksum' }
 
   if (bic !== '' && !BIC_SHAPE.test(bic)) errors.bic = { code: 'format' }
+  else if (bic === '' && IBAN_SHAPE.test(iban) && !EEA_COUNTRIES.includes(iban.slice(0, 2))) {
+    errors.bic = { code: 'required' }
+  }
 
   let amount = ''
   if (amountText !== '') {

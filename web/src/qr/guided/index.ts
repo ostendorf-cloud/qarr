@@ -31,7 +31,8 @@ export type Control =
 export interface FieldSpec {
   key: string
   control: Control
-  required?: boolean
+  /** True, or a test on the current entries of the form. */
+  required?: boolean | ((fields: Fields) => boolean)
   /** Values of a select. Their labels are in the catalogue. */
   options?: readonly string[]
   /** A value of the same concept in another kind carries over under this name. */
@@ -45,7 +46,12 @@ export const SPECS: Record<GuidedKind, readonly FieldSpec[]> = {
   wifi: [
     { key: 'ssid', control: 'text', required: true },
     { key: 'security', control: 'select', options: ['WPA', 'WEP', 'nopass'] },
-    { key: 'password', control: 'password', autocomplete: 'off' },
+    {
+      key: 'password',
+      control: 'password',
+      required: (fields) => fields.security !== 'nopass',
+      autocomplete: 'off',
+    },
     { key: 'hidden', control: 'check' },
   ],
   vcard: [
@@ -86,6 +92,11 @@ export const SPECS: Record<GuidedKind, readonly FieldSpec[]> = {
     { key: 'amount', control: 'text', placeholder: '12,50' },
     { key: 'remittance', control: 'text' },
   ],
+}
+
+/** Whether a field is required given the current entries of its form. */
+export function isRequired(spec: FieldSpec, fields: Fields): boolean {
+  return typeof spec.required === 'function' ? spec.required(fields) : (spec.required ?? false)
 }
 
 export type AllFields = Record<GuidedKind, Fields>

@@ -6,12 +6,13 @@ import { createGovueI18n } from '@ostendorf-cloud/govue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App.vue'
+import { messages } from './i18n/messages'
 import { decodeFragment, encodeFragment } from './url/fragment'
 import { defaultStyle } from './qr/style'
 
 // The page needs the language layer, which main.ts installs from the address.
 function renderApp(locale = 'en') {
-  return renderComponent(App, { global: { plugins: [createGovueI18n({ locale })] } })
+  return renderComponent(App, { global: { plugins: [createGovueI18n({ locale, messages })] } })
 }
 
 function render(component: typeof App) {

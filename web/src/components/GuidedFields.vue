@@ -12,7 +12,7 @@ import {
 } from '@ostendorf-cloud/govue'
 
 import { useQarrText } from '../i18n/messages'
-import { SPECS, type Errors, type FieldSpec, type GuidedKind } from '../qr/guided'
+import { isRequired, SPECS, type Errors, type FieldSpec, type GuidedKind } from '../qr/guided'
 import type { Fields } from '../qr/guided'
 
 const props = defineProps<{
@@ -29,6 +29,7 @@ const touched = reactive<Record<string, boolean>>({})
 
 const HINTS: Record<string, string> = {
   'wifi.password': 'wifiPassword',
+  'sepa.iban': 'sepaIban',
   'sepa.bic': 'sepaBic',
   'sepa.amount': 'sepaAmount',
   'tel.number': 'telNumber',
@@ -112,7 +113,7 @@ const dateClasses = 'w-full min-h-11 rounded-md border bg-surface px-3 text-base
           :label="label(spec)"
           :hint="hint(spec)"
           :error="error(spec)"
-          :required="spec.required"
+          :required="isRequired(spec, fields)"
         >
           <GovueSelect
             v-if="spec.control === 'select'"
@@ -135,6 +136,7 @@ const dateClasses = 'w-full min-h-11 rounded-md border bg-surface px-3 text-base
               dateClasses,
               invalid ? 'border-danger-strong' : 'border-border-strong hover:border-accent',
             ]"
+            :required="isRequired(spec, fields)"
             :aria-describedby="describedBy"
             :aria-invalid="invalid ? 'true' : undefined"
             @input="set(spec.key, ($event.target as HTMLInputElement).value)"

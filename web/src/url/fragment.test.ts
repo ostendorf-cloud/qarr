@@ -123,6 +123,21 @@ describe('a guided kind in the fragment', () => {
     expect(decodeURIComponent(fragment)).not.toContain('ignored')
   })
 
+  it('leaves a typed WiFi password out of the link once the network is open', () => {
+    const open = encodeFragment('', defaultStyle(), {
+      kind: 'wifi',
+      fields: { security: 'nopass', ssid: 'Guest', password: 'hunter2hunter2' },
+    })
+    expect(decodeURIComponent(open)).not.toContain('hunter2')
+    expect(decodeFragment(open)?.guided?.fields).toEqual({ security: 'nopass', ssid: 'Guest' })
+
+    const closed = encodeFragment('', defaultStyle(), {
+      kind: 'wifi',
+      fields: { security: 'WPA', ssid: 'Guest', password: 'hunter2hunter2' },
+    })
+    expect(decodeURIComponent(closed)).toContain('hunter2')
+  })
+
   it('encodes nothing for a form nobody filled in, apart from its starting values', () => {
     expect(encodeFragment('', defaultStyle(), { kind: 'wifi', fields: { security: 'WPA' } })).toBe(
       '',

@@ -24,6 +24,7 @@ import {
   type Fields,
   type Outcome,
 } from './shared'
+import { normalisePhone } from './tel'
 
 export function escapeVcard(value: string): string {
   return normaliseNewlines(value)
@@ -53,7 +54,11 @@ export function encodeVcard(fields: Fields): Outcome {
     errors.given = { code: 'nameRequired' }
     errors.family = { code: 'nameRequired' }
   }
-  if (v('phone') !== '' && !errors.phone && !PHONE.test(v('phone'))) {
+  if (
+    v('phone') !== '' &&
+    !errors.phone &&
+    (!PHONE.test(v('phone')) || normalisePhone(v('phone')) === null)
+  ) {
     errors.phone = { code: 'format' }
   }
   if (v('email') !== '' && !errors.email && !EMAIL.test(v('email'))) {
@@ -72,7 +77,7 @@ export function encodeVcard(fields: Fields): Outcome {
     ]
     if (v('org')) lines.push(`ORG:${escapeVcard(v('org'))}`)
     if (v('title')) lines.push(`TITLE:${escapeVcard(v('title'))}`)
-    if (v('phone')) lines.push(`TEL;TYPE=VOICE:${v('phone')}`)
+    if (v('phone')) lines.push(`TEL;TYPE=VOICE:${normalisePhone(v('phone'))}`)
     if (v('email')) lines.push(`EMAIL;TYPE=INTERNET:${escapeVcard(v('email'))}`)
     if (v('url')) lines.push(`URL:${v('url')}`)
     if (v('street') || v('postal') || v('city') || v('country')) {

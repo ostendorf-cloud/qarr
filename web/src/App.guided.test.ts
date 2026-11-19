@@ -167,6 +167,43 @@ describe('guided input', () => {
     )
   })
 
+  it('warns at the password and the IBAN that the link keeps them in plain text', async () => {
+    renderApp()
+    await chooseKind('WiFi')
+    expect(screen.getByLabelText(/Password/)).toHaveAccessibleDescription(/plain text/)
+    await chooseKind('SEPA transfer')
+    expect(screen.getByLabelText(/IBAN/)).toHaveAccessibleDescription(/plain text.*can read it/)
+  })
+
+  it('warns in German too, and says the address sentence in German', async () => {
+    renderApp('de')
+    await chooseKind('WLAN', 'Was der Code enthält')
+    expect(screen.getByLabelText(/Passwort/)).toHaveAccessibleDescription(/im Klartext/)
+    const sentence = screen.getByText(/Die Adresse dieser Seite trägt/)
+    expect(sentence).toHaveAttribute('lang', 'de')
+  })
+
+  it('asks for the WiFi password unless the network is open', async () => {
+    renderApp()
+    await chooseKind('WiFi')
+    expect(screen.getByLabelText(/Password/)).toBeRequired()
+
+    const trigger = screen.getByRole('combobox', { name: 'Security' })
+    await fireEvent.keyDown(trigger, { key: 'ArrowDown' })
+    const open = await screen.findByRole('option', { name: 'None (open network)' })
+    open.focus()
+    await fireEvent.keyDown(open, { key: 'Enter' })
+
+    await waitFor(() => expect(screen.getByLabelText(/Password/)).not.toBeRequired())
+  })
+
+  it('marks the native date input of an appointment as required', async () => {
+    renderApp()
+    await chooseKind('Appointment')
+    expect(screen.getByLabelText(/Start/)).toBeRequired()
+    expect(screen.getByLabelText(/End/)).not.toBeRequired()
+  })
+
   it('carries a guided entry to the other language', async () => {
     const assign = vi.fn()
     vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign })

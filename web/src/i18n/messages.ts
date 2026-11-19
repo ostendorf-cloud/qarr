@@ -63,8 +63,10 @@ const en: MessageTree = {
     },
   },
   hint: {
-    wifiPassword: 'Not needed for an open network.',
-    sepaBic: 'Optional. Within the euro area the IBAN is enough.',
+    wifiPassword:
+      'Not needed for an open network. Stays in the link in plain text. Anyone with the link can read it.',
+    sepaIban: 'Stays in the link in plain text. Anyone with the link can read it.',
+    sepaBic: 'Optional within the EEA, where the IBAN is enough. Required for other countries.',
     sepaAmount: 'Optional. A comma or a dot, at most two decimals.',
     telNumber: 'With country code, for example +49 151 1234567.',
     eventEnd: 'Optional.',
@@ -79,12 +81,17 @@ const en: MessageTree = {
     nameRequired: 'Enter a first or a last name.',
     control: 'Remove the line break or control character.',
     tooLong: 'At most {max} characters.',
+    tooLongBytes: 'At most {max} bytes. Letters such as ü take two or more bytes.',
     tooShort: 'At least {min} characters.',
     format: 'This is not a valid value for this field.',
     ibanChecksum: 'The check digits of this IBAN are wrong. Check for a typing error.',
     amountRange: 'The amount must be at least 0.01.',
     endBeforeStart: 'The end is before the start.',
     payloadTooBig: 'The whole payment text may be at most {max} bytes. Shorten the text.',
+  },
+  page: {
+    address:
+      "This page's own address carries the text, colours and shape, and what you enter in a guided form, so copying it shares exactly that part of the style; it is only as private as wherever that address is pasted. A logo you add stays in this browser and never travels in the link.",
   },
   switched: {
     dropped: 'Not carried over from {from}: {fields}. It returns if you switch back.',
@@ -141,8 +148,10 @@ const de: MessageTree = {
     },
   },
   hint: {
-    wifiPassword: 'Bei einem offenen Netzwerk nicht nötig.',
-    sepaBic: 'Optional. Im Euroraum genügt die IBAN.',
+    wifiPassword:
+      'Bei einem offenen Netzwerk nicht nötig. Bleibt im Link im Klartext. Jeder mit dem Link kann es lesen.',
+    sepaIban: 'Bleibt im Link im Klartext. Jeder mit dem Link kann es lesen.',
+    sepaBic: 'Im EWR optional, dort genügt die IBAN. Für andere Länder erforderlich.',
     sepaAmount: 'Optional. Komma oder Punkt, höchstens zwei Nachkommastellen.',
     telNumber: 'Mit Ländervorwahl, zum Beispiel +49 151 1234567.',
     eventEnd: 'Optional.',
@@ -157,6 +166,7 @@ const de: MessageTree = {
     nameRequired: 'Geben Sie einen Vor- oder Nachnamen ein.',
     control: 'Entfernen Sie den Zeilenumbruch oder das Steuerzeichen.',
     tooLong: 'Höchstens {max} Zeichen.',
+    tooLongBytes: 'Höchstens {max} Byte. Buchstaben wie ü belegen zwei oder mehr Byte.',
     tooShort: 'Mindestens {min} Zeichen.',
     format: 'Das ist kein gültiger Wert für dieses Feld.',
     ibanChecksum: 'Die Prüfziffern dieser IBAN stimmen nicht. Prüfen Sie auf Tippfehler.',
@@ -164,6 +174,10 @@ const de: MessageTree = {
     endBeforeStart: 'Das Ende liegt vor dem Beginn.',
     payloadTooBig:
       'Der gesamte Zahlungstext darf höchstens {max} Byte lang sein. Kürzen Sie den Text.',
+  },
+  page: {
+    address:
+      'Die Adresse dieser Seite trägt den Text, die Farben und die Form sowie Ihre Eingaben in einem geführten Formular. Wer die Adresse kopiert, teilt genau das. Sie ist nur so privat wie der Ort, an den Sie sie einfügen. Ein Logo, das Sie hinzufügen, bleibt in diesem Browser und steht nie in der Adresse.',
   },
   switched: {
     dropped: 'Nicht übernommen aus {from}: {fields}. Es kehrt zurück, wenn Sie zurückwechseln.',

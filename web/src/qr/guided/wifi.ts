@@ -42,7 +42,7 @@ export function encodeWifi(fields: Fields): Outcome {
   if (ssid === '') errors.ssid = { code: 'required' }
   else if (hasControl(ssid)) errors.ssid = { code: 'control' }
   else if (utf8Length(ssid) > SSID_MAX_BYTES) {
-    errors.ssid = { code: 'tooLong', max: SSID_MAX_BYTES }
+    errors.ssid = { code: 'tooLongBytes', max: SSID_MAX_BYTES }
   }
 
   if (security !== 'nopass') {
@@ -51,7 +51,7 @@ export function encodeWifi(fields: Fields): Outcome {
     else if (security === 'WPA' && utf8Length(password) < WPA_MIN) {
       errors.password = { code: 'tooShort', min: WPA_MIN }
     } else if (security === 'WPA' && utf8Length(password) > WPA_MAX) {
-      errors.password = { code: 'tooLong', max: WPA_MAX }
+      errors.password = { code: 'tooLongBytes', max: WPA_MAX }
     }
   }
 

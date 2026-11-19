@@ -13,6 +13,37 @@ describe('encodeTel', () => {
     })
   })
 
+  it('drops a (0) that follows the country code, in every usual notation', () => {
+    for (const number of [
+      '+49 (0) 151 123456',
+      '+49 (0)151 123456',
+      '+49(0)151123456',
+      '0049 (0) 151 123456',
+      '+49 (0)151/123456',
+    ]) {
+      const outcome = encodeTel({ number })
+      expect(outcome.ok && outcome.payload.replace(/^tel:(00|\+)/, '')).toBe('49151123456')
+    }
+    expect(encodeTel({ number: '+1 (0) 555 1234' })).toEqual({ ok: true, payload: 'tel:+15551234' })
+  })
+
+  it('refuses a zero in parentheses it cannot place', () => {
+    for (const number of ['(0) 151 123456', '+49 (0151) 123456', '+49 151 (0) 123456']) {
+      expect(encodeTel({ number })).toEqual({
+        ok: false,
+        errors: { number: { code: 'format' } },
+      })
+    }
+  })
+
+  it('keeps an area code in parentheses of a local number', () => {
+    expect(encodeTel({ number: '(0151) 123456' })).toEqual({ ok: true, payload: 'tel:0151123456' })
+    expect(encodeTel({ number: '+49 (151) 123456' })).toEqual({
+      ok: true,
+      payload: 'tel:+49151123456',
+    })
+  })
+
   it('keeps a local number as typed digits', () => {
     expect(encodeTel({ number: '0151/1234567' })).toEqual({ ok: true, payload: 'tel:01511234567' })
   })

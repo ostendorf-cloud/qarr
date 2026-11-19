@@ -82,7 +82,7 @@ export function encodeFragment(text: string, style: Style, guided: Guided | null
   if (guided ? untouched(guided) : text === '') return ''
   const payload: FragmentV1 = {
     v: CURRENT_VERSION,
-    ...(guided ? { kind: guided.kind, fields: nonEmpty(guided.fields) } : { text }),
+    ...(guided ? { kind: guided.kind, fields: carried(guided) } : { text }),
     style: {
       shape: style.shape,
       foreground: style.foreground,
@@ -148,6 +148,17 @@ function decodeV1(candidate: FragmentV1): RestoredConfiguration {
 
 function nonEmpty(fields: Fields): Fields {
   return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== ''))
+}
+
+/**
+ * The fields that travel in the link. An open WiFi network sends no
+ * password, even one typed before the network was set to open: the code
+ * does not carry it, so the link must not either.
+ */
+function carried(guided: Guided): Fields {
+  const fields = nonEmpty(guided.fields)
+  if (guided.kind === 'wifi' && fields.security === 'nopass') delete fields.password
+  return fields
 }
 
 /**

@@ -61,7 +61,7 @@ describe('encodeWifi', () => {
     })
     expect(encodeWifi({ ssid: 'a', security: 'WPA', password: 'x'.repeat(64) })).toEqual({
       ok: false,
-      errors: { password: { code: 'tooLong', max: 63 } },
+      errors: { password: { code: 'tooLongBytes', max: 63 } },
     })
     expect(encodeWifi({ ssid: 'a', security: 'WPA', password: 'x'.repeat(63) }).ok).toBe(true)
   })
@@ -71,7 +71,7 @@ describe('encodeWifi', () => {
     // 17 two-byte letters are 34 bytes.
     expect(encodeWifi({ ssid: 'ü'.repeat(17), security: 'nopass' })).toEqual({
       ok: false,
-      errors: { ssid: { code: 'tooLong', max: 32 } },
+      errors: { ssid: { code: 'tooLongBytes', max: 32 } },
     })
   })
 

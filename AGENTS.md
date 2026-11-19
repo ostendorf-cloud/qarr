@@ -143,6 +143,10 @@ field list of each form (`SPECS`) and `serialize`. Everything is pure and runs i
 - An error shows at its field once the field was left, never before.
 - The appointment's DTSTAMP is the time the string is built, so the code of an appointment
   differs between two openings of the same link. Its UID is a hash of the event's fields.
+- The entries are plain text in the link. The forms say so at the WiFi password and the IBAN,
+  and the privacy page says a copied link and the history keep them. An open WiFi network
+  carries no password in the link. The BIC is required outside the EEA (EPC069-12 v3.1).
+- A `(0)` right after a country code in a phone number is dropped, any other `(0)` is refused.
 - Not checked: that an IBAN has the length its country fixes (only the MOD 97 check), that a
   WiFi network name made of hex digits is read as text by every phone, and any BIC against a
   directory.

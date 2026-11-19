@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { encodeSepa, ibanChecksumOk, normaliseIban, parseAmount } from './sepa'
+import { EEA_COUNTRIES, encodeSepa, ibanChecksumOk, normaliseIban, parseAmount } from './sepa'
 
 const IBAN = 'DE89 3704 0044 0532 0130 00'
 
@@ -67,6 +67,20 @@ describe('encodeSepa', () => {
       ok: false,
       errors: { name: { code: 'required' }, iban: { code: 'required' } },
     })
+  })
+
+  it('requires the BIC outside the EEA and not inside it', () => {
+    const CH = 'CH93 0076 2011 6238 5295 7'
+    expect(encodeSepa({ name: 'Max', iban: CH })).toEqual({
+      ok: false,
+      errors: { bic: { code: 'required' } },
+    })
+    expect(encodeSepa({ name: 'Max', iban: CH, bic: 'UBSWCHZH80A' }).ok).toBe(true)
+    expect(encodeSepa({ name: 'Max', iban: IBAN }).ok).toBe(true)
+    expect(EEA_COUNTRIES).toHaveLength(30)
+    for (const code of ['CH', 'GB', 'MC', 'SM', 'AD', 'VA']) {
+      expect(EEA_COUNTRIES).not.toContain(code)
+    }
   })
 
   it('checks the BIC shape when one is given', () => {

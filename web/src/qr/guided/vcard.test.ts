@@ -32,7 +32,7 @@ describe('encodeVcard', () => {
         'FN:Anna Schmidt',
         'ORG:ACME\\; Inc',
         'TITLE:Head\\, Sales',
-        'TEL;TYPE=VOICE:+49 151 1234567',
+        'TEL;TYPE=VOICE:+491511234567',
         'EMAIL;TYPE=INTERNET:anna@example.org',
         'URL:https://example.org/a',
         'NOTE:Line one\\nLine\\, two\\\\',
@@ -89,6 +89,13 @@ describe('encodeVcard', () => {
       ok: false,
       errors: { given: { code: 'nameRequired' }, family: { code: 'nameRequired' } },
     })
+  })
+
+  it('drops the (0) after a country code from the telephone, as for tel:', () => {
+    expect(payload({ given: 'A', phone: '+49 (0) 151 123456' })).toContain(
+      'TEL;TYPE=VOICE:+49151123456\r\n',
+    )
+    expect(encodeVcard({ given: 'A', phone: '(0) 151 123456' }).ok).toBe(false)
   })
 
   it('checks telephone, email and website shapes', () => {

@@ -18,6 +18,7 @@ export type ErrorCode =
   | 'nameRequired'
   | 'control'
   | 'tooLong'
+  | 'tooLongBytes'
   | 'tooShort'
   | 'format'
   | 'ibanChecksum'
