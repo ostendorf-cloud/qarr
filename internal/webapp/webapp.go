@@ -11,11 +11,14 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/ostendorf-cloud/govue/analytics"
+	"github.com/ostendorf-cloud/govue/clientip"
 	"github.com/ostendorf-cloud/govue/health"
 	"github.com/ostendorf-cloud/govue/metrics"
 	"github.com/ostendorf-cloud/govue/middleware"
+	"github.com/ostendorf-cloud/qarr/internal/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -31,7 +34,7 @@ import (
 // query of the request never leave the process. A nil views counts nothing.
 func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServerFS(dist))
+	mux.Handle("/", noDirectoryListing(http.FileServerFS(dist)))
 
 	chain := []middleware.Middleware{
 		middleware.Recover(logger),
@@ -41,6 +44,35 @@ func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) http.Hand
 		chain = append(chain, views.Middleware)
 	}
 	return middleware.Chain(mux, chain...)
+}
+
+// noDirectoryListing answers 404 for any path ending in "/" except the root.
+// http.FileServerFS lists a directory that has no index.html with a 200 HTML
+// page, which would be a page view and a listing of the bundle.
+func noDirectoryListing(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" && strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// NewViews builds the page view counter from the configuration. It is the
+// one place the privacy relevant choices are made: the client address is
+// resolved with the configured trusted proxies only, and it is masked, never
+// sent whole (FullIP stays false). client may be nil for govue's default
+// client; a test passes one with a fake transport.
+func NewViews(cfg config.Config, logger *slog.Logger, registry prometheus.Registerer, client *http.Client) (*analytics.Client, error) {
+	return analytics.New(cfg.Umami, analytics.Options{
+		Hostname:   cfg.SiteHost,
+		Logger:     logger,
+		HTTPClient: client,
+		ClientIP:   clientip.NewResolver(cfg.TrustedProxies),
+		OnDrop: metrics.NewCounter(registry, "analytics_views_dropped_total",
+			"Page views lost to a full queue or a shutdown before they reached Umami."),
+	})
 }
 
 // AdminHandler builds the admin handler govue's httpserver.RunAdmin serves

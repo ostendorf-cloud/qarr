@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/ostendorf-cloud/govue/analytics"
 	"github.com/ostendorf-cloud/govue/clientip"
@@ -65,6 +66,12 @@ func Load(getenv func(string) string) (Config, error) {
 	cfg.SiteHost = getenv("SITE_HOST")
 	if cfg.Umami.Enabled() && cfg.SiteHost == "" {
 		problems = append(problems, errors.New("SITE_HOST: required when UMAMI_URL and UMAMI_WEBSITE_ID are set"))
+	}
+	// The same rule govue applies to Options.Hostname: a bare host, so a
+	// scheme, a path, userinfo, a query or a space is a mistake. A port is
+	// accepted, as govue accepts it. The value is not echoed.
+	if strings.ContainsAny(cfg.SiteHost, "/@?# \t") || strings.Contains(cfg.SiteHost, "://") {
+		problems = append(problems, errors.New("SITE_HOST: must be a bare host such as qarr.example.com, with no scheme, path, query or spaces"))
 	}
 	proxies, err := clientip.ParseCIDRs(getenv("TRUSTED_PROXIES"))
 	if err != nil {

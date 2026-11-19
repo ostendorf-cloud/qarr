@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +17,8 @@ import (
 	"time"
 
 	"github.com/ostendorf-cloud/govue/analytics"
+	"github.com/ostendorf-cloud/govue/metrics"
+	"github.com/ostendorf-cloud/qarr/internal/config"
 	"github.com/ostendorf-cloud/qarr/internal/webapp"
 )
 
@@ -59,22 +62,27 @@ func (f *fakeUmami) bodies() []string {
 // to fake.
 func countingHandler(t *testing.T, fake *fakeUmami) (http.Handler, *analytics.Client) {
 	t.Helper()
+	return countingHandlerWith(t, fake, nil)
+}
 
-	views, err := analytics.New(analytics.Config{
-		URL:       "https://umami.example.test",
-		WebsiteID: umamiID,
-	}, analytics.Options{
-		Hostname:   "qarr.example.test",
-		Logger:     testLogger(),
-		HTTPClient: &http.Client{Transport: fake},
-	})
+// countingHandlerWith is countingHandler with trusted proxies, built through
+// webapp.NewViews, the function main uses.
+func countingHandlerWith(t *testing.T, fake *fakeUmami, trusted []netip.Prefix) (http.Handler, *analytics.Client) {
+	t.Helper()
+
+	views, err := webapp.NewViews(config.Config{
+		Umami:          analytics.Config{URL: "https://umami.example.test", WebsiteID: umamiID},
+		SiteHost:       "qarr.example.test",
+		TrustedProxies: trusted,
+	}, testLogger(), metrics.NewRegistry(), &http.Client{Transport: fake})
 	if err != nil {
-		t.Fatalf("analytics.New: %v", err)
+		t.Fatalf("NewViews: %v", err)
 	}
 
 	dist := fstest.MapFS{
-		"index.html": {Data: []byte("<!doctype html><title>qarr</title>")},
-		"app.js":     {Data: []byte("console.log(1)")},
+		"index.html":    {Data: []byte("<!doctype html><title>qarr</title>")},
+		"app.js":        {Data: []byte("console.log(1)")},
+		"assets/app.js": {Data: []byte("console.log(2)")},
 	}
 	return webapp.Handler(dist, testLogger(), views), views
 }
@@ -164,6 +172,7 @@ func TestHandler_CountsOnlyPagesThroughTheRealChain(t *testing.T) {
 	visit(t, h, "/", http.Header{"Dnt": {"1"}})                    // Do Not Track
 	visit(t, h, "/", http.Header{"Sec-Gpc": {"1"}})                // Global Privacy Control
 	visit(t, h, "/", http.Header{"Sec-Purpose": {"prefetch"}})     // prefetch
+	visit(t, h, "/assets/", nil)                                   // directory listing
 	visit(t, h, "/app.js", nil)                                    // asset
 	visit(t, h, "/index.html", nil)                                // redirect
 	visit(t, h, "/WIFI:S:home;P:hunter2;;", nil)                   // no such page
@@ -201,6 +210,66 @@ func TestHandler_ASlowUmamiNeverDelaysAResponse(t *testing.T) {
 	}
 	if took := time.Since(start); took > 2*time.Second {
 		t.Fatalf("20 responses took %v with Umami blocked, want no wait", took)
+	}
+}
+
+// TestNewViews_MasksTheAddressAndTrustsOnlyTheConfiguredProxies proves the
+// address Umami receives is the masked client address: the forwarded client
+// behind a trusted proxy, the TCP peer when the peer is not trusted (a forged
+// X-Forwarded-For is ignored), and never the whole address.
+func TestNewViews_MasksTheAddressAndTrustsOnlyTheConfiguredProxies(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		trusted []netip.Prefix
+		peer    string
+		xff     string
+		wantIP  string
+	}{
+		{name: "no proxy trusted, peer is the client", peer: "203.0.113.77:4000", wantIP: "203.0.113.0"},
+		{
+			name:    "trusted proxy, forwarded client",
+			trusted: []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")},
+			peer:    "198.51.100.9:4000", xff: "192.0.2.200", wantIP: "192.0.2.0",
+		},
+		{
+			name:    "untrusted peer, forged header ignored",
+			trusted: []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")},
+			peer:    "203.0.113.77:4000", xff: "192.0.2.200", wantIP: "203.0.113.0",
+		},
+		{name: "IPv6 is masked to its /48", peer: "[2001:db8:1234:5678::9]:4000", wantIP: "2001:db8:1234::"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			fake := &fakeUmami{}
+			h, views := countingHandlerWith(t, fake, tc.trusted)
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			req.RemoteAddr = tc.peer
+			req.Header.Set("User-Agent", visitorUA)
+			if tc.xff != "" {
+				req.Header.Set("X-Forwarded-For", tc.xff)
+			}
+			h.ServeHTTP(httptest.NewRecorder(), req)
+			closeViews(t, views)
+
+			posts := fake.bodies()
+			if len(posts) != 1 {
+				t.Fatalf("got %d views, want 1: %v", len(posts), posts)
+			}
+			var ev struct {
+				Payload map[string]any `json:"payload"`
+			}
+			if err := json.Unmarshal([]byte(posts[0]), &ev); err != nil {
+				t.Fatal(err)
+			}
+			if got := ev.Payload["ip"]; got != tc.wantIP {
+				t.Errorf("reported ip = %v, want %s", got, tc.wantIP)
+			}
+		})
 	}
 }
 

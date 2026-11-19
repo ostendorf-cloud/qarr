@@ -44,13 +44,27 @@ func TestLoad_Umami(t *testing.T) {
 		"id only":           {"UMAMI_WEBSITE_ID": umamiID},
 		"no site host":      {"UMAMI_URL": umamiURL, "UMAMI_WEBSITE_ID": umamiID},
 		"bad trusted proxy": {"TRUSTED_PROXIES": "not-a-cidr"},
+		"host with scheme":  {"SITE_HOST": "https://qarr.example.test"},
+		"host with path":    {"SITE_HOST": "qarr.example.test/app"},
+		"host with query":   {"SITE_HOST": "qarr.example.test?x=1"},
+		"host with space":   {"SITE_HOST": "qarr example"},
 	}
 	for name, values := range bad {
-		if _, err := config.Load(env(values)); err == nil {
+		_, err := config.Load(env(values))
+		if err == nil {
 			t.Errorf("%s: Load() = nil error, want one", name)
-		} else if strings.Contains(err.Error(), umamiURL) {
+			continue
+		}
+		if strings.Contains(err.Error(), umamiURL) {
 			t.Errorf("%s: error repeats the Umami URL: %v", name, err)
 		}
+		if strings.HasPrefix(name, "host") && !strings.Contains(err.Error(), "SITE_HOST") {
+			t.Errorf("%s: error does not name SITE_HOST: %v", name, err)
+		}
+	}
+
+	if _, err := config.Load(env(map[string]string{"SITE_HOST": "qarr.example.test:8443"})); err != nil {
+		t.Errorf("host with a port: Load() = %v, want none", err)
 	}
 }
 

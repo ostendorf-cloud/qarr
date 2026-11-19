@@ -82,6 +82,22 @@
     "affinity": { "type": "object" },
     "config": {
       "type": "object",
+      "if": {
+        "required": ["umami"],
+        "properties": {
+          "umami": {
+            "type": "object",
+            "anyOf": [
+              { "required": ["url"], "properties": { "url": { "minLength": 1 } } },
+              { "required": ["websiteId"], "properties": { "websiteId": { "minLength": 1 } } }
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": ["siteHost"],
+        "properties": { "siteHost": { "minLength": 1 } }
+      },
       "properties": {
         "listenAddr": { "type": "string", "minLength": 1 },
         "adminListenAddr": { "type": "string", "minLength": 1 },

@@ -55,6 +55,34 @@ tests:
             name: TRUSTED_PROXIES
             value: 10.0.0.0/8
 
+  - it: rejects the url and the website id without a site host
+    set:
+      config:
+        umami:
+          url: https://umami.example.com
+          websiteId: 0a1b2c3d-0000-4000-8000-000000000001
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects a website id alone without a site host
+    set:
+      config:
+        umami:
+          websiteId: 0a1b2c3d-0000-4000-8000-000000000001
+    asserts:
+      - failedTemplate: {}
+
+  - it: accepts a site host without counting
+    set:
+      config:
+        siteHost: qarr.example.com
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SITE_HOST
+            value: qarr.example.com
+
   - it: rejects a website id that is no UUID
     set:
       config:

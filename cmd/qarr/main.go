@@ -16,8 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ostendorf-cloud/govue/analytics"
-	"github.com/ostendorf-cloud/govue/clientip"
 	"github.com/ostendorf-cloud/govue/health"
 	"github.com/ostendorf-cloud/govue/httpserver"
 	"github.com/ostendorf-cloud/govue/metrics"
@@ -54,13 +52,7 @@ func run() error {
 	healthRegistry := health.New()
 	metricsRegistry := metrics.NewRegistry()
 
-	views, err := analytics.New(cfg.Umami, analytics.Options{
-		Hostname: cfg.SiteHost,
-		Logger:   logger,
-		ClientIP: clientip.NewResolver(cfg.TrustedProxies),
-		OnDrop: metrics.NewCounter(metricsRegistry, "analytics_views_dropped_total",
-			"Page views lost to a full queue or a shutdown before they reached Umami."),
-	})
+	views, err := webapp.NewViews(cfg, logger, metricsRegistry, nil)
 	if err != nil {
 		return fmt.Errorf("qarr: %w", err)
 	}
