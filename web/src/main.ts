@@ -4,6 +4,7 @@
 import { createApp } from 'vue'
 import { createGovueI18n, localeFromPath, useTheme } from '@ostendorf-cloud/govue'
 
+import { messages } from './i18n/messages'
 import { pageFor } from './site'
 import './styles.css'
 
@@ -17,5 +18,5 @@ useTheme({ theme: 'qarr' })
 // from the address. Without a prefix, the dev server at "/", the language is
 // detected as usual.
 createApp(pageFor(location.pathname))
-  .use(createGovueI18n({ locale: localeFromPath(location.pathname) }))
+  .use(createGovueI18n({ locale: localeFromPath(location.pathname), messages }))
   .mount('#app')

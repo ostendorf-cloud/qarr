@@ -80,6 +80,43 @@ describe('summary', () => {
     expect(summary(code)).toMatch(/^level [LMQH], \d+ modules$/)
   })
 
+  it('draws a guided form only once it has no error, and says where each error is', async () => {
+    const code = useQrCode()
+    code.switchKind('tel')
+    await nextTick()
+    expect(code.status.value).toBe('empty')
+    expect(code.errors.value).toEqual({ number: { code: 'required' } })
+
+    code.fields.value.tel = { number: '+49 151 1234567' }
+    await nextTick()
+
+    expect(code.content.value).toBe('tel:+491511234567')
+    expect(code.errors.value).toEqual({})
+    expect(code.status.value).toBe('ready')
+  })
+
+  it('keeps what was typed in a form when the type is switched away and back', () => {
+    const code = useQrCode()
+    code.switchKind('wifi')
+    code.fields.value.wifi.ssid = 'Home'
+    code.switchKind('sepa')
+
+    expect(code.notice.value).toEqual({ from: 'wifi', dropped: ['ssid'] })
+
+    code.switchKind('wifi')
+    expect(code.fields.value.wifi.ssid).toBe('Home')
+    expect(code.notice.value).toBeNull()
+  })
+
+  it('says that free text is left behind on the way to a form', () => {
+    const code = useQrCode()
+    code.text.value = 'hello'
+    code.switchKind('tel')
+    expect(code.notice.value).toEqual({ from: 'text', dropped: ['text'] })
+    code.switchKind('text')
+    expect(code.text.value).toBe('hello')
+  })
+
   it('is empty before anything has been drawn', () => {
     const code = useQrCode()
     expect(summary(code)).toBe('')

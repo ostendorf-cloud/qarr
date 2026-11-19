@@ -22,8 +22,21 @@
 
 import { onScopeDispose, ref, watch, type Ref } from 'vue'
 
-import { decodeFragment, encodeFragment, fragmentLength } from '../url/fragment'
+import { decodeFragment, encodeFragment, fragmentLength, type Guided } from '../url/fragment'
+import type { AllFields, Kind } from '../qr/guided'
 import type { Style } from '../qr/style'
+
+/** The guided half of the state, when the page has one. */
+export interface GuidedState {
+  kind: Ref<Kind>
+  fields: Ref<AllFields>
+}
+
+/** What the fragment carries of the guided half: nothing for free text. */
+export function guidedOf(state: GuidedState | undefined): Guided | null {
+  if (!state || state.kind.value === 'text') return null
+  return { kind: state.kind.value, fields: state.fields.value[state.kind.value] }
+}
 
 /** How long to wait, after the last change, before the address bar catches up. */
 const SYNC_DELAY_MS = 400
@@ -33,18 +46,26 @@ export interface UrlFragmentState {
   length: Ref<number>
 }
 
-export function useUrlFragment(text: Ref<string>, style: Ref<Style>): UrlFragmentState {
+export function useUrlFragment(
+  text: Ref<string>,
+  style: Ref<Style>,
+  guided?: GuidedState,
+): UrlFragmentState {
   const restored = decodeFragment(currentFragment())
   if (restored) {
     text.value = restored.text
     style.value = restored.style
+    if (guided && restored.guided) {
+      guided.kind.value = restored.guided.kind
+      guided.fields.value[restored.guided.kind] = restored.guided.fields
+    }
   }
 
-  const length = ref(fragmentLength(text.value, style.value))
+  const length = ref(fragmentLength(text.value, style.value, guidedOf(guided)))
   let timer: ReturnType<typeof setTimeout> | undefined
 
   function sync(): void {
-    const fragment = encodeFragment(text.value, style.value)
+    const fragment = encodeFragment(text.value, style.value, guidedOf(guided))
     length.value = fragment.length
     const target = fragment
       ? `${window.location.pathname}${window.location.search}#${fragment}`
@@ -53,7 +74,7 @@ export function useUrlFragment(text: Ref<string>, style: Ref<Style>): UrlFragmen
   }
 
   watch(
-    [text, style],
+    [text, style, ...(guided ? [guided.kind, guided.fields] : [])],
     () => {
       clearTimeout(timer)
       timer = setTimeout(sync, SYNC_DELAY_MS)

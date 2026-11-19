@@ -11,10 +11,51 @@ import {
   GovueTextarea,
 } from '@ostendorf-cloud/govue'
 
+import { useQarrText } from '../i18n/messages'
+import { emptyFields, isKind, KINDS, type AllFields, type Errors, type Kind } from '../qr/guided'
 import { fromFile, ImageError, MAX_LOGO_BYTES } from '../qr/logo'
 import type { Style } from '../qr/style'
+import GuidedFields from './GuidedFields.vue'
+
+const props = withDefaults(
+  defineProps<{
+    /** What the guided form refuses, by field key. */
+    errors?: Errors
+    /** What the last switch of kind left behind, to say so. */
+    notice?: { from: Kind; dropped: string[] } | null
+  }>(),
+  { errors: () => ({}), notice: null },
+)
+
+const emit = defineEmits<{ switchKind: [kind: Kind] }>()
+
+const { t, locale } = useQarrText()
 
 const text = defineModel<string>('text', { default: '' })
+const kind = defineModel<Kind>('kind', { default: 'text' })
+const fields = defineModel<AllFields>('fields', { default: () => emptyFields() })
+
+const guidedKind = computed(() => (kind.value === 'text' ? null : kind.value))
+
+const kindOptions = computed(() => KINDS.map((value) => ({ value, label: t(`kind.${value}`) })))
+
+function onKind(value: string): void {
+  if (isKind(value) && value !== kind.value) emit('switchKind', value)
+}
+
+const droppedText = computed(() => {
+  if (!props.notice) return ''
+  const from = props.notice.from
+  const names = props.notice.dropped.map((key) =>
+    from === 'text' ? t('kind.text') : t(`field.${from}.${key}`),
+  )
+  return t('switched.dropped', { from: t(`kind.${from}`), fields: names.join(', ') })
+})
+
+function setFields(next: Record<string, string>): void {
+  if (!guidedKind.value) return
+  fields.value = { ...fields.value, [guidedKind.value]: next }
+}
 // Named qrStyle rather than style: Vue reserves a prop literally named
 // "style" for its own class/style merging, which would stop this from
 // arriving as a normal, readable value.
@@ -109,9 +150,31 @@ const logoFractionId = useId()
 
 <template>
   <form class="flex flex-col gap-6" @submit.prevent>
-    <GovueField label="Text" hint="Anything a scanner can read back as plain text.">
+    <!-- The page text is English only, so the texts of the guided input carry
+         the language of the address on their own. -->
+    <div class="flex flex-col gap-2" :lang="locale()">
+      <GovueField :label="t('kind.label')" :hint="t('kind.hint')">
+        <GovueSelect :model-value="kind" :options="kindOptions" @update:model-value="onKind" />
+      </GovueField>
+      <p v-if="droppedText" role="status" class="text-sm text-warning-text">{{ droppedText }}</p>
+    </div>
+
+    <GovueField
+      v-if="kind === 'text'"
+      label="Text"
+      hint="Anything a scanner can read back as plain text."
+    >
       <GovueTextarea v-model="text" :rows="3" placeholder="https://example.org" />
     </GovueField>
+    <div v-else-if="guidedKind" :lang="locale()">
+      <GuidedFields
+        :key="guidedKind"
+        :kind="guidedKind"
+        :errors="errors"
+        :model-value="fields[guidedKind]"
+        @update:model-value="setFields"
+      />
+    </div>
 
     <div class="flex flex-wrap items-end gap-4">
       <div class="flex flex-col gap-1.5">

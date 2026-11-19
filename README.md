@@ -41,7 +41,9 @@ the start.
 
 - What you type into a QR code is not sent to the server. The code is drawn in the browser, the
   page makes no request with it, and the page address keeps it in the fragment, which a browser
-  never sends. It does stay in the browser, including its history.
+  never sends. It does stay in the browser, including its history. The guided forms (WiFi,
+  contact, appointment, telephone number, SEPA transfer) work the same way: their entries are
+  put together in the browser and live in that fragment.
 - With counting on, the server reports one page view to Umami after it served the page.
   Counting needs no script in the browser, sets no cookie and stores nothing on the device.
 - Reported: the page as the route pattern (`/de/`, `/en/`, `/de/imprint` and so on), never the

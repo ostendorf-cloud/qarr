@@ -35,6 +35,12 @@ const { locale } = useLanguage()
         Die Adresse ist nur so privat wie der Ort, an den Sie sie einfügen. Ein Logo, das Sie
         hinzufügen, bleibt in diesem Browser und steht nie in der Adresse.
       </p>
+      <p>
+        Das gilt auch für die geführten Formulare für WLAN, Kontakt, Termin, Telefonnummer und
+        SEPA-Überweisung. Was Sie dort eingeben, etwa ein WLAN-Passwort oder eine IBAN, wird im
+        Browser zu dem Text des Codes zusammengesetzt. Es wird nicht an den Server gesendet. Die
+        Angaben stehen im Teil der Adresse nach dem #, solange das Formular ausgefüllt ist.
+      </p>
 
       <h2 class="text-xl font-semibold">Konten, Cookies und Speicher im Browser</h2>
       <p>
@@ -114,6 +120,12 @@ const { locale } = useLanguage()
         the #. A browser never sends that part to a server. It stays in your browser, including its
         history. The address is only as private as wherever you paste it. A logo you add stays in
         this browser and never appears in the address.
+      </p>
+      <p>
+        This also holds for the guided forms for WiFi, contact, appointment, telephone number and
+        SEPA transfer. What you enter there, such as a WiFi password or an IBAN, is put together
+        into the text of the code in your browser. It is not sent to the server. The entries are in
+        the part of the address after the # for as long as the form is filled in.
       </p>
 
       <h2 class="text-xl font-semibold">Accounts, cookies and browser storage</h2>

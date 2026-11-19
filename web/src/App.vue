@@ -18,7 +18,7 @@ import {
 import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
 import { useQrCode } from './composables/useQrCode'
-import { useUrlFragment } from './composables/useUrlFragment'
+import { guidedOf, useUrlFragment } from './composables/useUrlFragment'
 import { COMFORTABLE_FRAGMENT_LENGTH, encodeFragment } from './url/fragment'
 
 const language = useLanguage()
@@ -27,7 +27,7 @@ const privacyHref = computed(() =>
 )
 
 const code = useQrCode()
-const fragment = useUrlFragment(code.text, code.style)
+const fragment = useUrlFragment(code.text, code.style, code)
 const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGMENT_LENGTH)
 
 // Every language is its own prerendered page, so a language change goes to
@@ -35,7 +35,7 @@ const fragmentTooLong = computed(() => fragment.length.value > COMFORTABLE_FRAGM
 // it travels along. It is encoded from the current text and style rather than
 // read from the address bar, which lags the last keystroke by the debounce.
 function onLanguageChange(next: string): void {
-  const encoded = encodeFragment(code.text.value, code.style.value)
+  const encoded = encodeFragment(code.text.value, code.style.value, guidedOf(code))
   window.location.assign(`/${next}/${encoded ? `#${encoded}` : ''}`)
 }
 </script>
@@ -61,9 +61,9 @@ function onLanguageChange(next: string): void {
       server.
     </p>
     <p class="text-base text-text">
-      This page's own address carries the text, colours and shape, so copying it shares exactly that
-      part of the style; it is only as private as wherever that address is pasted. A logo you add
-      stays in this browser and never travels in the link.
+      This page's own address carries the text, colours and shape, and what you enter in a guided
+      form, so copying it shares exactly that part of the style; it is only as private as wherever
+      that address is pasted. A logo you add stays in this browser and never travels in the link.
     </p>
     <p v-if="fragmentTooLong" role="status" class="text-sm text-warning-text">
       This address has grown long enough that pasting it may look awkward in a chat message or a
@@ -72,7 +72,15 @@ function onLanguageChange(next: string): void {
 
     <div class="grid gap-6 lg:grid-cols-2">
       <GovueCard title="Your code" as="section">
-        <QrForm v-model:text="code.text.value" v-model:qr-style="code.style.value" />
+        <QrForm
+          v-model:text="code.text.value"
+          v-model:kind="code.kind.value"
+          v-model:fields="code.fields.value"
+          v-model:qr-style="code.style.value"
+          :errors="code.errors.value"
+          :notice="code.notice.value"
+          @switch-kind="code.switchKind"
+        />
       </GovueCard>
 
       <GovueCard title="Preview" as="section">
