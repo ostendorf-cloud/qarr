@@ -6,6 +6,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/vue
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, ref } from 'vue'
 
+import { messages } from '../i18n/messages'
 import { render as drawCode } from '../qr/render'
 import { defaultStyle, type Style } from '../qr/style'
 import { LIST_KEY } from '../templates/store'
@@ -28,7 +29,9 @@ function mountPanel(
 ) {
   const { style, Host } = host(initial, options.logoBlocked)
   const view = render(Host, {
-    global: options.locale ? { plugins: [createGovueI18n({ locale: options.locale })] } : {},
+    global: options.locale
+      ? { plugins: [createGovueI18n({ locale: options.locale, messages })] }
+      : {},
   })
   return { style, view }
 }
@@ -194,7 +197,7 @@ describe('TemplatePanel', () => {
     mountPanel()
     await fireEvent.change(screen.getByLabelText('Template file'), { target: { files: [file] } })
 
-    await waitFor(() => expect(screen.getByText('Imported 1 templates, skipped 0.')).toBeVisible())
+    await waitFor(() => expect(screen.getByText('Imported 1 template, skipped 0.')).toBeVisible())
     expect(screen.getByText('Brand')).toBeVisible()
   })
 
@@ -261,6 +264,72 @@ describe('TemplatePanel', () => {
 
     expect(await screen.findByRole('button', { name: 'Anwenden Marke' })).toBeVisible()
     expect(screen.getByText(/nur in diesem Browser/)).toBeVisible()
+  })
+
+  it('marks the panel with the language of its texts, heading included', () => {
+    mountPanel(styled(), { locale: 'de' })
+
+    const panel = screen.getByRole('heading', { name: 'Vorlagen' }).closest('[lang]')
+    expect(panel).toHaveAttribute('lang', 'de')
+  })
+
+  it('says the plural right in both languages', async () => {
+    mountPanel(styled(), { locale: 'de' })
+    await fireEvent.update(screen.getByLabelText('Name der Vorlage'), 'Marke')
+    await fireEvent.click(screen.getByRole('button', { name: 'Aktuelles Aussehen speichern' }))
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Vorlagen exportieren' }))
+
+    expect(screen.getByText('1 Vorlage exportiert.')).toBeVisible()
+  })
+
+  it('moves focus to the next template after a delete, and to the name field after the last', async () => {
+    mountPanel()
+    await save('One')
+    await save('Two')
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Delete One' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Apply Two' })).toHaveFocus())
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Delete Two' }))
+    await waitFor(() => expect(screen.getByLabelText('Template name')).toHaveFocus())
+  })
+
+  it('moves focus into the rename field, and back to Rename after saving or cancelling', async () => {
+    mountPanel()
+    await save('One')
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Rename One' }))
+    await waitFor(() => expect(screen.getByLabelText('New name for One')).toHaveFocus())
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Rename One' })).toHaveFocus())
+
+    await fireEvent.click(screen.getByRole('button', { name: 'Rename One' }))
+    await fireEvent.update(screen.getByLabelText('New name for One'), 'Uno')
+    await fireEvent.click(screen.getByRole('button', { name: 'Save name' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Rename Uno' })).toHaveFocus())
+  })
+
+  it('submits a rename on Enter', async () => {
+    mountPanel()
+    await save('One')
+
+    await fireEvent.click(await screen.findByRole('button', { name: 'Rename One' }))
+    const field = screen.getByLabelText('New name for One')
+    await fireEvent.update(field, 'Uno')
+    await fireEvent.submit(field.closest('form') as HTMLFormElement)
+
+    expect(await screen.findByText('Uno')).toBeVisible()
+    expect(screen.getByRole('status')).toHaveTextContent('Renamed to Uno.')
+  })
+
+  it('keeps the hidden file input out of the tab order', () => {
+    mountPanel()
+
+    expect(screen.getByLabelText('Template file')).toHaveAttribute('tabindex', '-1')
   })
 
   it('names the stored logo size and the number of templates kept', () => {

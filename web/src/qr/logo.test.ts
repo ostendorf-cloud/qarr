@@ -84,6 +84,44 @@ describe('fromFile', () => {
     await expect(fromFile(fileOfSize(10), 0.2, true)).rejects.toThrow(/no size of its own/)
   })
 
+  it.each([
+    [8000, 5001, false],
+    [8000, 5000, true],
+  ])('caps the pixel count before drawing: %i by %i', async (width, height, accepted) => {
+    vi.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(function (this: FileReader) {
+      Object.defineProperty(this, 'result', { value: 'data:image/png;base64,AA==', writable: true })
+      this.onload?.(new Event('load') as ProgressEvent<FileReader>)
+    })
+    vi.stubGlobal(
+      'Image',
+      class {
+        width = width
+        height = height
+        onload: (() => void) | null = null
+        onerror: (() => void) | null = null
+        set src(_value: string) {
+          this.onload?.()
+        }
+      },
+    )
+    const drawImage = vi.fn()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      drawImage,
+      getImageData: (_x: number, _y: number, w: number, h: number) => ({
+        data: new Uint8ClampedArray(w * h * 4),
+      }),
+    } as unknown as CanvasRenderingContext2D)
+
+    const result = fromFile(fileOfSize(10), 0.2, true)
+
+    if (accepted) {
+      await expect(result).resolves.toMatchObject({ width: 256 })
+    } else {
+      await expect(result).rejects.toThrow(/megapixels/)
+      expect(drawImage).not.toHaveBeenCalled()
+    }
+  })
+
   it('reports a picture that fails to load', async () => {
     vi.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(function (this: FileReader) {
       Object.defineProperty(this, 'result', { value: 'data:image/png;base64,AA==', writable: true })

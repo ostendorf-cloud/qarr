@@ -26,6 +26,9 @@ export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml']
  */
 export const WORKING_SIZE = 256
 
+/** The most pixels a chosen picture may have, as width times height. */
+export const MAX_LOGO_PIXELS = 40_000_000
+
 export class ImageError extends Error {
   constructor(message: string) {
     super(message)
@@ -46,6 +49,11 @@ async function toLogo(source: string, fraction: number, plate: boolean): Promise
     throw new ImageError(
       'this picture has no size of its own; an SVG needs a width and a height on its root element',
     )
+  }
+  // A small file can still decode to a huge bitmap. Drawing it would ask the
+  // browser for that many pixels before the reduction below, so it is refused.
+  if (picture.width * picture.height > MAX_LOGO_PIXELS) {
+    throw new ImageError('this picture is too large in pixels; use one under 40 megapixels')
   }
   const scale = Math.min(1, WORKING_SIZE / Math.max(picture.width, picture.height))
   const width = Math.max(1, Math.round(picture.width * scale))

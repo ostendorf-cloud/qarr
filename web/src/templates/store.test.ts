@@ -1,11 +1,13 @@
 // Copyright 2026 Simon Ostendorf
 // SPDX-License-Identifier: Apache-2.0
 
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defaultStyle } from '../qr/style'
 import {
+  MAX_IMPORT_BYTES,
   MAX_LOGO_SIDE,
+  MAX_LOGO_TEXT,
   MAX_NAME_LENGTH,
   MAX_TEMPLATES,
   fromStyle,
@@ -32,6 +34,7 @@ function input(name: string, side = 0): Omit<Template, 'id'> {
 }
 
 beforeEach(() => localStorage.clear())
+afterEach(() => vi.restoreAllMocks())
 
 describe('the template store', () => {
   it('keeps a template across a reload, logo pixels included', () => {
@@ -216,6 +219,108 @@ describe('the template store', () => {
     ).toEqual(['Keep'])
   })
 
+  it('puts the earlier list back when a later write is refused', () => {
+    const store = createTemplateStore()
+    const keep = store.save(input('Keep', 4))
+    if (!keep.ok) throw new Error('save failed')
+    // The logos are written before the list, so refusing the list leaves the
+    // new logo record behind unless the rollback removes it.
+    const real = Storage.prototype.setItem
+    let refused = false
+    Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+      if (key === LIST_KEY && !refused) {
+        refused = true
+        throw new DOMException('full', 'QuotaExceededError')
+      }
+      real.call(this, key, value)
+    }
+    let result
+    try {
+      result = store.save(input('New', 4))
+    } finally {
+      Storage.prototype.setItem = real
+    }
+
+    expect(result).toEqual({ ok: false, reason: 'full' })
+    expect(Object.keys(localStorage).sort()).toEqual([LIST_KEY, LOGO_KEY + keep.value.id].sort())
+  })
+
+  it('keeps a good template when the cleanup write of an invalid entry is refused', () => {
+    createTemplateStore().save(input('Good'))
+    const list = JSON.parse(localStorage.getItem(LIST_KEY) ?? '[]') as unknown[]
+    list.push({ id: 'bad1', name: '', foreground: 'red', background: '', shape: 'x', logo: null })
+    localStorage.setItem(LIST_KEY, JSON.stringify(list))
+    const real = Storage.prototype.setItem
+    let refused = false
+    Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+      if (key === LIST_KEY && !refused) {
+        refused = true
+        throw new DOMException('full', 'QuotaExceededError')
+      }
+      real.call(this, key, value)
+    }
+    let result
+    try {
+      result = createTemplateStore().save(input('New'))
+    } finally {
+      Storage.prototype.setItem = real
+    }
+
+    expect(refused).toBe(true)
+    expect(result.ok).toBe(true)
+    expect(
+      createTemplateStore()
+        .list()
+        .map((t) => t.name),
+    ).toEqual(['Good', 'New'])
+  })
+
+  it('commits nothing when the list could not be read', () => {
+    const store = createTemplateStore()
+    const good = store.save(input('Good', 4))
+    if (!good.ok) throw new Error('save failed')
+    const before = { ...localStorage }
+    const realGet = Storage.prototype.getItem
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem')
+    Storage.prototype.getItem = function (this: Storage, key: string) {
+      if (key === LIST_KEY) throw new DOMException('blocked', 'SecurityError')
+      return realGet.call(this, key)
+    }
+    const file = JSON.stringify({
+      format: 'qarr-templates',
+      version: 1,
+      templates: [toRecord({ ...input('Extra'), id: 'x' })],
+    })
+    let results
+    try {
+      results = [
+        store.save(input('New')),
+        store.rename(good.value.id, 'Other'),
+        store.remove(good.value.id),
+        store.importText(file),
+      ]
+    } finally {
+      Storage.prototype.getItem = realGet
+    }
+
+    for (const result of results) expect(result).toEqual({ ok: false, reason: 'unavailable' })
+    expect(setItem).not.toHaveBeenCalled()
+    expect(removeItem).not.toHaveBeenCalled()
+    expect({ ...localStorage }).toEqual(before)
+    setItem.mockRestore()
+    removeItem.mockRestore()
+  })
+
+  it('removes logo records no list refers to on the next write, also with no list at all', () => {
+    localStorage.setItem(LOGO_KEY + 'orphan', toBase64(logoOf(4).pixels))
+
+    const saved = createTemplateStore().save(input('A'))
+
+    expect(saved.ok).toBe(true)
+    expect(localStorage.getItem(LOGO_KEY + 'orphan')).toBeNull()
+  })
+
   it('works with no storage at all: empty, and a save says it cannot', () => {
     const store = createTemplateStore(null)
 
@@ -305,6 +410,16 @@ describe('export and import', () => {
     })
   })
 
+  it('refuses a file over the size cap before parsing it', () => {
+    const parse = vi.spyOn(JSON, 'parse')
+
+    const result = createTemplateStore().importText(' '.repeat(MAX_IMPORT_BYTES + 1))
+
+    expect(result).toEqual({ ok: false, reason: 'limit' })
+    expect(parse).not.toHaveBeenCalled()
+    parse.mockRestore()
+  })
+
   it.each([
     ['not JSON', 'hello'],
     ['another format', '{"format":"other","version":1,"templates":[]}'],
@@ -316,6 +431,58 @@ describe('export and import', () => {
 })
 
 describe('parseTemplate', () => {
+  const base = { name: 'A', foreground: '#000000', background: '', shape: 'square' }
+
+  it('refuses logo text over the cap before decoding it', () => {
+    // The sides are right and the text is the one thing wrong: a text this
+    // long is refused without ever reaching atob.
+    const atob = vi.spyOn(globalThis, 'atob')
+    const data = 'A'.repeat(MAX_LOGO_TEXT + 4)
+
+    const parsed = parseTemplate(
+      {
+        ...base,
+        logo: { width: MAX_LOGO_SIDE, height: MAX_LOGO_SIDE, fraction: 0.2, plate: true, data },
+      },
+      'abc',
+    )
+
+    expect(parsed).toBeNull()
+    expect(atob).not.toHaveBeenCalled()
+    atob.mockRestore()
+  })
+
+  it.each([
+    [MAX_LOGO_SIDE + 1, 1],
+    [1, MAX_LOGO_SIDE + 1],
+    [0, 4],
+    [4, 0],
+    [1.5, 4],
+  ])(
+    'refuses the logo sides %s by %s even when the data has exactly that size',
+    (width, height) => {
+      const data = toBase64(new Uint8ClampedArray(Math.max(0, Math.round(width * height * 4))))
+
+      const parsed = parseTemplate(
+        { ...base, logo: { width, height, fraction: 0.2, plate: true, data } },
+        'abc',
+      )
+
+      expect(parsed).toBeNull()
+    },
+  )
+
+  it('accepts the largest logo side', () => {
+    const data = toBase64(new Uint8ClampedArray(MAX_LOGO_SIDE * 4))
+
+    const parsed = parseTemplate(
+      { ...base, logo: { width: MAX_LOGO_SIDE, height: 1, fraction: 0.2, plate: true, data } },
+      'abc',
+    )
+
+    expect(parsed?.logo?.width).toBe(MAX_LOGO_SIDE)
+  })
+
   it('lower cases colours and builds its own value', () => {
     const parsed = parseTemplate(
       {

@@ -130,8 +130,8 @@ field list of each form (`SPECS`) and `serialize`. Everything is pure and runs i
   `tel:` (RFC 3966) and the EPC QR code for SEPA (EPC069-12, version 002, UTF-8, SCT).
 - An encoder returns `{ ok, payload }` or an error code per field. It writes no prose: the code
   maps to a message in `web/src/i18n/messages.ts`, German and English, merged into govue's
-  language layer under `qarr`. Only the guided input is translated so far, the rest of the start
-  page stays English (see "Legal pages").
+  language layer under `qarr`. Only the guided input and the template panel are translated so
+  far, the rest of the start page stays English (see "Legal pages").
 - The fragment keeps `v: 1` and gains optional `kind` and `fields`. A link without them is free
   text. Only the active kind's non-empty fields travel, and only keys the form knows are restored.
 - A switch of type keeps what can be kept: a field with the same `carry` name moves over, every
@@ -154,8 +154,9 @@ field list of each form (`SPECS`) and `serialize`. Everything is pure and runs i
 ## Saved templates
 
 `web/src/templates` keeps a name, the colours, the module shape and a logo in the browser's local
-storage, with no account and no request. `TemplatePanel.vue` is the interface, with its own German
-and English texts in `templates/messages.ts` (read from govue's language layer).
+storage, with no account and no request. `TemplatePanel.vue` is the interface. Its German and
+English texts are in `web/src/i18n/messages.ts` under `qarr.templates`, and the panel root carries
+the `lang` of the address.
 
 - Storage: local storage, not IndexedDB. The access is synchronous and the bounded sizes below fit
   the usual 5 MB quota. The list is one record, `qarr.templates`, with no pixels. Each logo is its
@@ -173,9 +174,14 @@ and English texts in `templates/messages.ts` (read from govue's language layer).
   mutation of those checks must fail `store.test.ts`.
 - A name that is taken gets a number: `Brand (2)`. Export writes `qarr-templates.json`, import
   reads the same format and skips invalid entries.
-- `TemplatePanel`'s `logoBlocked` prop applies colours and shape without the logo. A SEPA code
-  must stay at error correction level M, which a logo's repair would raise, so the page sets the
-  prop while the kind is SEPA once guided input exists.
+- A read that fails (storage throws) is not an empty list: save, rename, remove and import then
+  return `unavailable` and write nothing. A failed cleanup write after a read keeps what was
+  read. Logo records no template refers to are removed by the next write.
+- A SEPA code stays at error correction level M and carries no logo. One place decides:
+  `useQrCode().drawStyle` drops the logo and fixes level M while the kind is `sepa`, and the
+  preview and the export draw from it. The stored style keeps the logo, so it is drawn again
+  for another kind. `QrForm` disables the upload and `TemplatePanel` (`logoBlocked`) applies
+  colours and shape only for that kind.
 - A change to what is stored needs an update of `web/src/pages/PrivacyPage.vue` (both languages).
 
 ## Page view counting
@@ -213,8 +219,9 @@ Nothing govue provides is built here: `language.HandleLegal`, `GovueLegalPage` a
   together if that ever changes.
 - The legal texts are the site's own and state only what the code and this repository back. A
   fact that no document states (hosting provider, retention, legal basis) is not written down.
-- The start page text is English only for now, marked `lang="en"`. Header and footer follow the
-  language of the address.
+- The start page text is English only for now, marked `lang="en"`, apart from the guided input,
+  the template panel and one sentence on the address, which carry the language of the address
+  in their own `lang`. Header and footer follow the language of the address.
 
 ## Scope of this milestone
 

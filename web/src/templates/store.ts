@@ -77,9 +77,17 @@ export interface TemplateStore {
 }
 
 export function createTemplateStore(storage: Storage | null = defaultStorage()): TemplateStore {
-  function read(): Template[] {
-    if (!storage) return []
-    let kept: Template[] = []
+  /**
+   * The valid templates, or null when storage could not be read at all. An
+   * empty list is a real answer; null is not, and no mutation may commit on
+   * top of it, or it would overwrite what it could not see.
+   *
+   * Orphan logo records (the list record is missing) are not removed here:
+   * every write removes any logo record no template refers to.
+   */
+  function load(): Template[] | null {
+    if (!storage) return null
+    const kept: Template[] = []
     let dirty = false
     try {
       const text = storage.getItem(LIST_KEY)
@@ -117,11 +125,22 @@ export function createTemplateStore(storage: Storage | null = defaultStorage()):
         kept.push(template)
       }
       if (entries.length > MAX_TEMPLATES) dirty = true
-      if (dirty) write(kept)
     } catch {
-      kept = []
+      return null
+    }
+    if (dirty) {
+      // Only the cleanup is allowed to fail: what was read stays valid.
+      try {
+        write(kept)
+      } catch {
+        // The next write tries again.
+      }
     }
     return kept
+  }
+
+  function read(): Template[] {
+    return load() ?? []
   }
 
   /** Writes the list and every logo, then drops logos nothing refers to. */
@@ -176,7 +195,8 @@ export function createTemplateStore(storage: Storage | null = defaultStorage()):
       if (!parseTemplate(toRecord({ ...input, id: 'check', name }), 'check')) {
         return { ok: false, reason: 'logo' }
       }
-      const current = read()
+      const current = load()
+      if (!current) return { ok: false, reason: 'unavailable' }
       if (current.length >= MAX_TEMPLATES) return { ok: false, reason: 'limit' }
       const template = add(current, { ...input, name })
       const failed = commit([...current, template], current)
@@ -186,7 +206,8 @@ export function createTemplateStore(storage: Storage | null = defaultStorage()):
       if (!storage) return { ok: false, reason: 'unavailable' }
       const name = cleanName(raw)
       if (name === null) return { ok: false, reason: 'name' }
-      const current = read()
+      const current = load()
+      if (!current) return { ok: false, reason: 'unavailable' }
       const target = current.find((t) => t.id === id)
       if (!target) return { ok: false, reason: 'missing' }
       const others = current.filter((t) => t.id !== id)
@@ -205,7 +226,8 @@ export function createTemplateStore(storage: Storage | null = defaultStorage()):
     },
     remove(id) {
       if (!storage) return { ok: false, reason: 'unavailable' }
-      const current = read()
+      const current = load()
+      if (!current) return { ok: false, reason: 'unavailable' }
       if (!current.some((t) => t.id === id)) return { ok: false, reason: 'missing' }
       const failed = commit(
         current.filter((t) => t.id !== id),
@@ -234,7 +256,8 @@ export function createTemplateStore(storage: Storage | null = defaultStorage()):
       ) {
         return { ok: false, reason: 'format' }
       }
-      const current = read()
+      const current = load()
+      if (!current) return { ok: false, reason: 'unavailable' }
       const next = [...current]
       let skipped = 0
       for (const raw of file.templates) {

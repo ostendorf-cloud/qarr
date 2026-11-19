@@ -4,6 +4,9 @@
 import { fireEvent, render, screen, waitFor, type RenderResult } from '@testing-library/vue'
 import { describe, expect, it } from 'vitest'
 
+import { createGovueI18n } from '@ostendorf-cloud/govue'
+
+import { messages } from '../i18n/messages'
 import { defaultStyle, type Style } from '../qr/style'
 import QrForm from './QrForm.vue'
 
@@ -72,6 +75,30 @@ describe('QrForm', () => {
 
     expect(screen.getByRole('button', { name: 'Remove logo' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Replace logo' })).toBeVisible()
+  })
+
+  it('disables the logo upload for a SEPA code, and says why in German and English', () => {
+    const view = render(QrForm, {
+      props: { text: 'x', qrStyle: defaultStyle(), logoBlocked: true },
+    })
+
+    expect(screen.getByRole('button', { name: 'Add a logo' })).toBeDisabled()
+    expect(screen.getByLabelText('Logo picture')).toBeDisabled()
+    expect(screen.getByText(/A SEPA code takes no logo/)).toBeVisible()
+    view.unmount()
+
+    render(QrForm, {
+      props: { text: 'x', qrStyle: defaultStyle(), logoBlocked: true },
+      global: { plugins: [createGovueI18n({ locale: 'de', messages })] },
+    })
+    expect(screen.getByText(/Ein SEPA-Code nimmt kein Logo auf/)).toHaveAttribute('lang', 'de')
+  })
+
+  it('keeps the logo upload enabled for every other kind', () => {
+    mounted()
+
+    expect(screen.getByRole('button', { name: 'Add a logo' })).toBeEnabled()
+    expect(screen.queryByText(/A SEPA code takes no logo/)).not.toBeInTheDocument()
   })
 
   it('removing a logo writes a style with no logo back into the model', async () => {
