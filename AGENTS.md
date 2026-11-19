@@ -164,8 +164,11 @@ the `lang` of the address.
 - Limits, all in `templates/schema.ts`: 8 templates, names of 1 to 40 characters, a stored logo of
   at most 256 by 256 pixels (256 KB, the size `qr/logo.ts` reduces every picture to), an import
   file of at most 4 MB. A picture chosen as a logo is refused by `qr/logo.ts` before it is read
-  if it is not a PNG, JPEG or SVG, or is over 2 MB. A save the quota refuses is reported and
-  leaves the earlier templates as they were.
+  if it is not a PNG, JPEG or SVG, or is over 2 MB, and after loading if it has more than 40
+  megapixels (`MAX_LOGO_PIXELS`), before anything is drawn. A save the quota refuses is
+  reported and leaves the earlier templates as they were.
+- A list record that does not parse as a list counts as empty, deliberately: it is cleaned up
+  and replaced by the next write. A storage that throws on read is different, see below.
 - An SVG is never put into the page. It is loaded through an Image element, where a browser runs
   no script, and only its pixels are kept.
 - Everything read from storage or from an import file is untrusted. `parseTemplate` accepts only
@@ -178,7 +181,8 @@ the `lang` of the address.
   return `unavailable` and write nothing. A failed cleanup write after a read keeps what was
   read. Logo records no template refers to are removed by the next write.
 - A SEPA code stays at error correction level M and carries no logo. One place decides:
-  `useQrCode().drawStyle` drops the logo and fixes level M while the kind is `sepa`, and the
+  `useQrCode().drawStyle` drops the logo and fixes level M while the kind is `sepa`, `render`
+  is given `maxLevel` M so its repair never raises it (it reports an error instead), and the
   preview and the export draw from it. The stored style keeps the logo, so it is drawn again
   for another kind. `QrForm` disables the upload and `TemplatePanel` (`logoBlocked`) applies
   colours and shape only for that kind.

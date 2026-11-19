@@ -122,7 +122,7 @@ export function useQrCode(): QrCodeState {
 
     status.value = 'working'
     try {
-      const drawn = render(content.value, drawStyle.value)
+      const drawn = render(content.value, drawStyle.value, kind.value === 'sepa' ? 'M' : 'H')
       result.value = markRaw(drawn)
       adjusted.value = drawn.adjusted
       status.value = 'ready'

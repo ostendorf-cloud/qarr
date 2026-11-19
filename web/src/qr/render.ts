@@ -219,9 +219,10 @@ function flatten(canvas: Canvas): Canvas {
   return out
 }
 
-function nextLevel(level: Level): Level | null {
+function nextLevel(level: Level, max: Level = 'H'): Level | null {
   const at = LEVELS.indexOf(level)
-  return at >= 0 && at + 1 < LEVELS.length ? LEVELS[at + 1] : null
+  if (at < 0 || at + 1 >= LEVELS.length) return null
+  return at + 1 <= LEVELS.indexOf(max) ? LEVELS[at + 1] : null
 }
 
 /**
@@ -233,7 +234,7 @@ function nextLevel(level: Level): Level | null {
  * exists for, and what makes "it was chosen and verified" true rather than
  * assumed.
  */
-export function render(content: string, style: Style): Result {
+export function render(content: string, style: Style, maxLevel: Level = 'H'): Result {
   if (content === '') throw new RenderError('nothing to encode')
 
   const invalid = validate(style)
@@ -251,7 +252,7 @@ export function render(content: string, style: Style): Result {
 
   if (fraction > 0) {
     while (fraction > MAX_FRACTION[level]) {
-      const up = nextLevel(level)
+      const up = nextLevel(level, maxLevel)
       if (!up) break
       level = up
     }
@@ -277,7 +278,7 @@ export function render(content: string, style: Style): Result {
       return { ...canvas, matrix, level, logoFraction: fraction, adjusted }
     }
 
-    const up = nextLevel(level)
+    const up = nextLevel(level, maxLevel)
     if (up) {
       level = up
       adjusted.push(
@@ -289,6 +290,12 @@ export function render(content: string, style: Style): Result {
       fraction = Math.max(MIN_FRACTION, fraction - 0.02)
       adjusted.push(`the logo was shrunk to ${pct(fraction)} because the code did not read back`)
       continue
+    }
+    if (maxLevel !== 'H' && level === maxLevel) {
+      throw new RenderError(
+        `the code does not read back at level ${level}, which this kind of code requires: ` +
+          'change the colours or shorten the text',
+      )
     }
     throw new RenderError(
       fraction > 0

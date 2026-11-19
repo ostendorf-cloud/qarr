@@ -269,7 +269,8 @@ describe('TemplatePanel', () => {
   it('marks the panel with the language of its texts, heading included', () => {
     mountPanel(styled(), { locale: 'de' })
 
-    const panel = screen.getByRole('heading', { name: 'Vorlagen' }).closest('[lang]')
+    // The panel's own root, not any ancestor such as <html lang>.
+    const panel = screen.getByRole('heading', { name: 'Vorlagen' }).closest('section')
     expect(panel).toHaveAttribute('lang', 'de')
   })
 
