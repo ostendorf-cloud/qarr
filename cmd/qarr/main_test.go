@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/ostendorf-cloud/qarr/internal/webapp"
@@ -29,7 +30,7 @@ func TestEmbeddedDistBuildsAWorkingHandler(t *testing.T) {
 
 	// The real prerender output must load as a site: the sitemap, the start
 	// page and the legal pages of both languages.
-	handler, err := webapp.Handler(dist, slog.New(slog.DiscardHandler), nil)
+	handler, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.de"}, slog.New(slog.DiscardHandler), nil)
 	if err != nil {
 		t.Fatalf("webapp.Handler on the embedded dist: %v", err)
 	}

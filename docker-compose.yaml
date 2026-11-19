@@ -11,7 +11,7 @@ services:
       # Counting is off unless both UMAMI_ values are set, in .env.
       UMAMI_URL: "${UMAMI_URL:-}"
       UMAMI_WEBSITE_ID: "${UMAMI_WEBSITE_ID:-}"
-      SITE_HOST: "${SITE_HOST:-}"
+      SITE_URL: "${SITE_URL:-https://qarr.de}"
       TRUSTED_PROXIES: "${TRUSTED_PROXIES:-}"
     ports:
       - "127.0.0.1:8080:8080"

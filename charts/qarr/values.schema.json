@@ -82,28 +82,16 @@
     "affinity": { "type": "object" },
     "config": {
       "type": "object",
-      "if": {
-        "required": ["umami"],
-        "properties": {
-          "umami": {
-            "type": "object",
-            "anyOf": [
-              { "required": ["url"], "properties": { "url": { "minLength": 1 } } },
-              { "required": ["websiteId"], "properties": { "websiteId": { "minLength": 1 } } }
-            ]
-          }
-        }
-      },
-      "then": {
-        "required": ["siteHost"],
-        "properties": { "siteHost": { "minLength": 1 } }
-      },
       "properties": {
         "listenAddr": { "type": "string", "minLength": 1 },
         "adminListenAddr": { "type": "string", "minLength": 1 },
         "logLevel": { "type": "string", "enum": ["debug", "info", "warn", "error"] },
         "trustedProxies": { "type": "string" },
-        "siteHost": { "type": "string", "pattern": "^[^/@?# ]*$" },
+        "siteUrl": {
+          "type": "string",
+          "pattern": "^(https?://[^/@?# ]+)?$",
+          "description": "Public origin of the site (SITE_URL), without path, query or fragment. Empty keeps the application default."
+        },
         "umami": {
           "type": "object",
           "additionalProperties": false,

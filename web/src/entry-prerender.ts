@@ -12,7 +12,11 @@ import { localizedFiles, render, type PrerenderFile } from '@ostendorf-cloud/gov
 
 import { pageFor, routes } from './site'
 
-/** The public origin of the site, for the canonical links and the sitemap. */
+/**
+ * The origin baked into the canonical links, the hreflang links and the
+ * sitemap. The Go server replaces it by SITE_URL when it loads the pages, so
+ * it must equal config.DefaultSiteURL.
+ */
 export const ORIGIN = 'https://qarr.de'
 
 export function files(template: string): Promise<PrerenderFile[]> {

@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/ostendorf-cloud/govue/analytics"
@@ -34,6 +35,8 @@ import (
 // "/" redirects to the start page of the visitor's language, and the legal
 // short paths such as /impressum redirect through govue's language package.
 // Those redirects are 302 answers, so the counter never sees a 200 for them.
+// The build bakes https://qarr.de into the canonical and hreflang links and
+// the sitemap; siteURL replaces that origin when the pages are loaded.
 // Everything else falls to the file server of the catch-all, which serves
 // the hashed assets and answers 404 for the rest. Handler fails when the
 // sitemap or a page it lists is missing.
@@ -44,8 +47,8 @@ import (
 // reported as the pattern of the page, such as "/de/" or "/en/privacy", and
 // nothing else: the path and the query of the request never leave the
 // process. A nil views counts nothing.
-func Handler(dist fs.FS, logger *slog.Logger, views *analytics.Client) (http.Handler, error) {
-	s, err := loadSite(dist)
+func Handler(dist fs.FS, siteURL *url.URL, logger *slog.Logger, views *analytics.Client) (http.Handler, error) {
+	s, err := loadSite(dist, siteURL)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +107,7 @@ func noDirectoryListing(next http.Handler) http.Handler {
 // client; a test passes one with a fake transport.
 func NewViews(cfg config.Config, logger *slog.Logger, registry prometheus.Registerer, client *http.Client) (*analytics.Client, error) {
 	return analytics.New(cfg.Umami, analytics.Options{
-		Hostname:   cfg.SiteHost,
+		Hostname:   cfg.SiteURL.Hostname(),
 		Logger:     logger,
 		HTTPClient: client,
 		ClientIP:   clientip.NewResolver(cfg.TrustedProxies),

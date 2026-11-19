@@ -59,12 +59,12 @@ func run() error {
 	// govue logs only failures, so the one startup line is ours. It names
 	// no URL, which an operator may have put a secret into.
 	if views.Enabled() {
-		logger.Info("page view counting is on", "site_host", cfg.SiteHost)
+		logger.Info("page view counting is on", "site_host", cfg.SiteURL.Hostname())
 	} else {
 		logger.Info("page view counting is off: UMAMI_URL and UMAMI_WEBSITE_ID are not set")
 	}
 
-	handler, err := webapp.Handler(dist, logger, views)
+	handler, err := webapp.Handler(dist, cfg.SiteURL, logger, views)
 	if err != nil {
 		return fmt.Errorf("qarr: %w", err)
 	}

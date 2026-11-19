@@ -17,7 +17,7 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
-            name: SITE_HOST
+            name: SITE_URL
           any: true
       - notContains:
           path: spec.template.spec.containers[0].env
@@ -25,10 +25,10 @@ tests:
             name: TRUSTED_PROXIES
           any: true
 
-  - it: wires the url, the website id, the host and the trusted proxies as plain values
+  - it: wires the url, the website id, the site url and the trusted proxies as plain values
     set:
       config:
-        siteHost: qarr.example.com
+        siteUrl: https://qarr.example.com
         trustedProxies: 10.0.0.0/8
         umami:
           url: https://umami.example.com
@@ -47,41 +47,51 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: SITE_HOST
-            value: qarr.example.com
+            name: SITE_URL
+            value: https://qarr.example.com
       - contains:
           path: spec.template.spec.containers[0].env
           content:
             name: TRUSTED_PROXIES
             value: 10.0.0.0/8
 
-  - it: rejects the url and the website id without a site host
+  - it: accepts counting without a site url, the application default applies
     set:
       config:
         umami:
           url: https://umami.example.com
           websiteId: 0a1b2c3d-0000-4000-8000-000000000001
     asserts:
-      - failedTemplate: {}
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SITE_URL
+          any: true
 
-  - it: rejects a website id alone without a site host
+  - it: accepts a site url without counting
     set:
       config:
-        umami:
-          websiteId: 0a1b2c3d-0000-4000-8000-000000000001
-    asserts:
-      - failedTemplate: {}
-
-  - it: accepts a site host without counting
-    set:
-      config:
-        siteHost: qarr.example.com
+        siteUrl: https://qarr.example.com
     asserts:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: SITE_HOST
-            value: qarr.example.com
+            name: SITE_URL
+            value: https://qarr.example.com
+
+  - it: rejects a site url that is a bare host
+    set:
+      config:
+        siteUrl: qarr.example.com
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects a site url with a path
+    set:
+      config:
+        siteUrl: https://qarr.example.com/app
+    asserts:
+      - failedTemplate: {}
 
   - it: rejects a website id that is no UUID
     set:

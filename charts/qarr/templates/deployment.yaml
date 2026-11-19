@@ -72,8 +72,8 @@ spec:
             - name: TRUSTED_PROXIES
               value: {{ . | quote }}
             {{- end }}
-            {{- with .Values.config.siteHost }}
-            - name: SITE_HOST
+            {{- with .Values.config.siteUrl }}
+            - name: SITE_URL
               value: {{ . | quote }}
             {{- end }}
             {{- with .Values.config.umami.url }}
