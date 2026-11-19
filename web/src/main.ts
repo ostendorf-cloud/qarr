@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createApp } from 'vue'
-import { useTheme } from '@ostendorf-cloud/govue'
+import { createGovueI18n, localeFromPath, useTheme } from '@ostendorf-cloud/govue'
 
-import App from './App.vue'
+import { pageFor } from './site'
 import './styles.css'
 
 // The theme never varies: this scaffold ships exactly one, still neutral,
@@ -12,4 +12,10 @@ import './styles.css'
 // it once a toggle exists, matching useTheme's own documented default.
 useTheme({ theme: 'qarr' })
 
-createApp(App).mount('#app')
+// Every page is its own prerendered file under a language prefix. The client
+// replaces its markup (createApp, never createSSRApp) and takes the language
+// from the address. Without a prefix, the dev server at "/", the language is
+// detected as usual.
+createApp(pageFor(location.pathname))
+  .use(createGovueI18n({ locale: localeFromPath(location.pathname) }))
+  .mount('#app')

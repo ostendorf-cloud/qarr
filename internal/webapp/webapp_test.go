@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http/httptest"
 	"testing"
-	"testing/fstest"
 
 	"github.com/ostendorf-cloud/govue/health"
 	"github.com/ostendorf-cloud/govue/metrics"
@@ -22,29 +21,24 @@ func testLogger() *slog.Logger {
 func TestHandler_ServesTheEmbeddedSPA(t *testing.T) {
 	t.Parallel()
 
-	dist := fstest.MapFS{
-		"index.html": {Data: []byte("<!doctype html><title>qarr</title>")},
-	}
+	handler := newHandler(t, fs.FS(siteFS()))
 
-	handler := webapp.Handler(fs.FS(dist), testLogger(), nil)
-
-	req := httptest.NewRequestWithContext(t.Context(), "GET", "/", nil)
+	req := httptest.NewRequestWithContext(t.Context(), "GET", "/de/", nil)
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 
 	if rec.Code != 200 {
-		t.Fatalf("GET / status = %d, want 200", rec.Code)
+		t.Fatalf("GET /de/ status = %d, want 200", rec.Code)
 	}
-	if got := rec.Body.String(); got != "<!doctype html><title>qarr</title>" {
-		t.Fatalf("GET / body = %q, want the embedded index.html", got)
+	if got := rec.Body.String(); got != "page de home" {
+		t.Fatalf("GET /de/ body = %q, want the prerendered page", got)
 	}
 }
 
 func TestHandler_RecoversFromAPanic(t *testing.T) {
 	t.Parallel()
 
-	dist := fstest.MapFS{"index.html": {Data: []byte("ok")}}
-	handler := webapp.Handler(fs.FS(dist), testLogger(), nil)
+	handler := newHandler(t, fs.FS(siteFS()))
 
 	// A request for a path http.FileServerFS cannot serve without panicking
 	// is not exercised here; Recover's own contract is covered by govue's

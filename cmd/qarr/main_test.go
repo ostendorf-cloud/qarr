@@ -5,7 +5,12 @@ package main
 
 import (
 	"io/fs"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/ostendorf-cloud/qarr/internal/webapp"
 )
 
 // TestEmbeddedDistBuildsAWorkingHandler proves the embedded dist filesystem
@@ -20,6 +25,20 @@ func TestEmbeddedDistBuildsAWorkingHandler(t *testing.T) {
 
 	if _, err := fs.Stat(dist, "index.html"); err != nil {
 		t.Fatalf("embedded dist has no index.html: %v", err)
+	}
+
+	// The real prerender output must load as a site: the sitemap, the start
+	// page and the legal pages of both languages.
+	handler, err := webapp.Handler(dist, slog.New(slog.DiscardHandler), nil)
+	if err != nil {
+		t.Fatalf("webapp.Handler on the embedded dist: %v", err)
+	}
+	for _, path := range []string{"/de/", "/en/", "/de/imprint", "/en/imprint", "/de/privacy", "/en/privacy"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("GET %s = %d, want 200", path, rec.Code)
+		}
 	}
 }
 

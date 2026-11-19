@@ -64,7 +64,10 @@ func run() error {
 		logger.Info("page view counting is off: UMAMI_URL and UMAMI_WEBSITE_ID are not set")
 	}
 
-	handler := webapp.Handler(dist, logger, views)
+	handler, err := webapp.Handler(dist, logger, views)
+	if err != nil {
+		return fmt.Errorf("qarr: %w", err)
+	}
 	adminHandler := webapp.AdminHandler(healthRegistry, metricsRegistry, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
