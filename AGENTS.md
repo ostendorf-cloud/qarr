@@ -206,8 +206,9 @@ Not implemented yet, later milestones:
 
 ## Deviations
 
-- Every CI job runs on `ubuntu-latest`, not a Blacksmith runner: this repository is public, so
-  its CI minutes are not billed the way a private repository's are. No
+- Every CI job runs on `ubuntu-latest`, except the linux/arm64 legs of `docker-build` and
+  `image-build`, which run on the native `ubuntu-24.04-arm` runner. No Blacksmith runner: this
+  repository is public, so its CI minutes are not billed the way a private repository's are. No
   `.github/actionlint.yaml` self-hosted-runner override file either, for the same reason.
 - `.github/workflows/codeql.yaml` and the `license` job inside `checks.yaml` exist because this
   repository is public: code scanning needs no GitHub Advanced Security entitlement here, and a
