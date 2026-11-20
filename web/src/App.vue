@@ -17,6 +17,7 @@ import {
 
 import QrForm from './components/QrForm.vue'
 import QrPreview from './components/QrPreview.vue'
+import TemplatePanel from './components/TemplatePanel.vue'
 import { useQarrText } from './i18n/messages'
 import { useQrCode } from './composables/useQrCode'
 import { guidedOf, useUrlFragment } from './composables/useUrlFragment'
@@ -51,8 +52,8 @@ function onLanguageChange(next: string): void {
     </template>
   </GovueHeader>
   <!-- The page text of qarr itself is English only for now, apart from the
-       guided input and the sentence on what the address carries. The header
-       and the footer follow the language of the address. -->
+       guided input, the template panel and the sentence on what the address
+       carries. The header and the footer follow the language of the address. -->
   <GovuePage
     lang="en"
     width="shell"
@@ -78,6 +79,7 @@ function onLanguageChange(next: string): void {
           v-model:qr-style="code.style.value"
           :errors="code.errors.value"
           :notice="code.notice.value"
+          :logo-blocked="code.kind.value === 'sepa'"
           @switch-kind="code.switchKind"
         />
       </GovueCard>
@@ -88,10 +90,12 @@ function onLanguageChange(next: string): void {
           :result="code.result.value"
           :problem="code.problem.value"
           :adjusted="code.adjusted.value"
-          :qr-style="code.style.value"
+          :qr-style="code.drawStyle.value"
         />
       </GovueCard>
     </div>
+
+    <TemplatePanel v-model:qr-style="code.style.value" :logo-blocked="code.kind.value === 'sepa'" />
 
     <p class="text-base text-text">
       What this site does with your data, including the counting of page views, is in the

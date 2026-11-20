@@ -3,8 +3,8 @@
 
 /**
  * qarr's own texts, merged into govue's language layer under the key `qarr`
- * (main.ts, entry-prerender.ts). Only the guided input is here so far: the
- * rest of the start page is English only, see AGENTS.md.
+ * (main.ts, entry-prerender.ts). The guided input and the template panel are
+ * here: the rest of the start page is English only, see AGENTS.md.
  *
  * vue-i18n gives "@", "|", "{" and "}" a meaning inside a message, so none of
  * them appears in a text below except as a {name} placeholder.
@@ -88,6 +88,54 @@ const en: MessageTree = {
     amountRange: 'The amount must be at least 0.01.',
     endBeforeStart: 'The end is before the start.',
     payloadTooBig: 'The whole payment text may be at most {max} bytes. Shorten the text.',
+  },
+  logo: {
+    sepaBlocked:
+      'A SEPA code takes no logo. The EPC format fixes error correction level M, which a logo would raise. A logo you added is kept and drawn again for other types.',
+  },
+  templates: {
+    title: 'Templates',
+    intro:
+      'Save the colours, the module shape and the logo under a name and use them again. Templates are stored in this browser only and are never sent anywhere.',
+    unavailable:
+      'This browser does not allow storing data for this page, so templates cannot be saved. The rest of the page works.',
+    nameLabel: 'Template name',
+    nameHint: 'Up to {max} characters. A name that is taken gets a number.',
+    save: 'Save current look',
+    empty: 'No templates saved yet.',
+    list: 'Saved templates',
+    apply: 'Apply',
+    rename: 'Rename',
+    renameLabel: 'New name for {name}',
+    renameSave: 'Save name',
+    cancel: 'Cancel',
+    remove: 'Delete',
+    hasLogo: 'with logo',
+    export: 'Export templates',
+    import: 'Import templates',
+    importLabel: 'Template file',
+    importHint: 'A file made by Export. Up to {size} MB.',
+    stored:
+      'A logo is kept as image data in this browser, at most {side} by {side} pixels. At most {max} templates are kept. Deleting a template removes its data at once.',
+    saved: 'Saved as {name}.',
+    applied: 'Applied {name}.',
+    renamed: 'Renamed to {name}.',
+    removed: 'Deleted {name}.',
+    imported: 'Imported {added} templates, skipped {skipped}.',
+    importedOne: 'Imported 1 template, skipped {skipped}.',
+    exported: 'Exported {count} templates.',
+    exportedOne: 'Exported 1 template.',
+    logoSkipped: 'The logo was not applied: a SEPA code stays free of a logo.',
+    error: {
+      full: 'The browser has no room left for this. Delete a template and try again.',
+      limit: 'At most {max} templates are kept. Delete one first.',
+      name: 'Enter a name of 1 to {max} characters without line breaks.',
+      format: 'This file is not a template export.',
+      logo: 'This logo is too large to be stored with a template.',
+      fileTooLarge: 'The file is larger than {size} MB.',
+      missing: 'That template no longer exists.',
+      unavailable: 'This browser does not allow storing data for this page.',
+    },
   },
   page: {
     address:
@@ -174,6 +222,54 @@ const de: MessageTree = {
     endBeforeStart: 'Das Ende liegt vor dem Beginn.',
     payloadTooBig:
       'Der gesamte Zahlungstext darf höchstens {max} Byte lang sein. Kürzen Sie den Text.',
+  },
+  logo: {
+    sepaBlocked:
+      'Ein SEPA-Code nimmt kein Logo auf. Das EPC-Format legt die Fehlerkorrektur auf Stufe M fest, die ein Logo anheben würde. Ein hinzugefügtes Logo bleibt erhalten und wird bei anderen Typen wieder gezeichnet.',
+  },
+  templates: {
+    title: 'Vorlagen',
+    intro:
+      'Speichern Sie Farben, Modulform und Logo unter einem Namen und verwenden Sie sie wieder. Vorlagen liegen nur in diesem Browser und werden nirgendwohin gesendet.',
+    unavailable:
+      'Dieser Browser erlaubt für diese Seite kein Speichern von Daten, daher können keine Vorlagen gespeichert werden. Der Rest der Seite funktioniert.',
+    nameLabel: 'Name der Vorlage',
+    nameHint: 'Höchstens {max} Zeichen. Ein vergebener Name bekommt eine Nummer.',
+    save: 'Aktuelles Aussehen speichern',
+    empty: 'Noch keine Vorlagen gespeichert.',
+    list: 'Gespeicherte Vorlagen',
+    apply: 'Anwenden',
+    rename: 'Umbenennen',
+    renameLabel: 'Neuer Name für {name}',
+    renameSave: 'Namen speichern',
+    cancel: 'Abbrechen',
+    remove: 'Löschen',
+    hasLogo: 'mit Logo',
+    export: 'Vorlagen exportieren',
+    import: 'Vorlagen importieren',
+    importLabel: 'Vorlagen-Datei',
+    importHint: 'Eine Datei aus dem Export. Bis zu {size} MB.',
+    stored:
+      'Ein Logo wird als Bilddaten in diesem Browser gespeichert, höchstens {side} mal {side} Pixel. Es bleiben höchstens {max} Vorlagen. Das Löschen einer Vorlage entfernt ihre Daten sofort.',
+    saved: 'Gespeichert als {name}.',
+    applied: '{name} angewendet.',
+    renamed: 'Umbenannt in {name}.',
+    removed: '{name} gelöscht.',
+    imported: '{added} Vorlagen importiert, {skipped} übersprungen.',
+    importedOne: '1 Vorlage importiert, {skipped} übersprungen.',
+    exported: '{count} Vorlagen exportiert.',
+    exportedOne: '1 Vorlage exportiert.',
+    logoSkipped: 'Das Logo wurde nicht angewendet: Ein SEPA-Code bleibt ohne Logo.',
+    error: {
+      full: 'Der Browser hat dafür keinen Platz mehr. Löschen Sie eine Vorlage und versuchen Sie es erneut.',
+      limit: 'Es bleiben höchstens {max} Vorlagen. Löschen Sie zuerst eine.',
+      name: 'Geben Sie einen Namen mit 1 bis {max} Zeichen ohne Zeilenumbruch ein.',
+      format: 'Diese Datei ist kein Vorlagen-Export.',
+      logo: 'Dieses Logo ist zu groß, um mit einer Vorlage gespeichert zu werden.',
+      fileTooLarge: 'Die Datei ist größer als {size} MB.',
+      missing: 'Diese Vorlage gibt es nicht mehr.',
+      unavailable: 'Dieser Browser erlaubt für diese Seite kein Speichern von Daten.',
+    },
   },
   page: {
     address:

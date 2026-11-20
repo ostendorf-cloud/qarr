@@ -17,11 +17,17 @@ import type { Logo } from './style'
 /** The largest picture accepted. Beyond this it is not a logo. */
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024
 
+/** The picture types accepted, by the type the browser reports. */
+export const LOGO_TYPES = ['image/png', 'image/jpeg', 'image/svg+xml']
+
 /**
  * The size the picture is reduced to before it is kept. A logo ends up a few
  * dozen pixels across in a code; holding more is memory for nothing.
  */
-const WORKING_SIZE = 256
+export const WORKING_SIZE = 256
+
+/** The most pixels a chosen picture may have, as width times height. */
+export const MAX_LOGO_PIXELS = 40_000_000
 
 export class ImageError extends Error {
   constructor(message: string) {
@@ -43,6 +49,11 @@ async function toLogo(source: string, fraction: number, plate: boolean): Promise
     throw new ImageError(
       'this picture has no size of its own; an SVG needs a width and a height on its root element',
     )
+  }
+  // A small file can still decode to a huge bitmap. Drawing it would ask the
+  // browser for that many pixels before the reduction below, so it is refused.
+  if (picture.width * picture.height > MAX_LOGO_PIXELS) {
+    throw new ImageError('this picture is too large in pixels; use one under 40 megapixels')
   }
   const scale = Math.min(1, WORKING_SIZE / Math.max(picture.width, picture.height))
   const width = Math.max(1, Math.round(picture.width * scale))
@@ -70,6 +81,12 @@ function load(source: string): Promise<HTMLImageElement> {
 
 /** Checks a chosen file before it is loaded at all, and reads it as a logo. */
 export async function fromFile(file: File, fraction: number, plate: boolean): Promise<Logo> {
+  // Only these three kinds. An SVG is never put into the page: it is loaded
+  // through an Image element, where a browser runs no script, and read back
+  // as pixels, so only pixels are ever kept or stored.
+  if (!LOGO_TYPES.includes(file.type)) {
+    throw new ImageError('the picture must be a PNG, JPEG or SVG file')
+  }
   if (file.size > MAX_LOGO_BYTES) {
     throw new ImageError(`the picture must be at most ${Math.round(MAX_LOGO_BYTES / 1024)} KB`)
   }

@@ -43,6 +43,8 @@ export interface QrCodeState {
   notice: Ref<{ from: Kind; dropped: string[] } | null>
   switchKind: (next: Kind) => void
   style: Ref<Style>
+  /** What is drawn and exported: the style, minus what the kind forbids. */
+  drawStyle: ComputedRef<Style>
   status: Ref<Status>
   result: Ref<Result | null>
   /** What went wrong, in words a person can act on. */
@@ -91,6 +93,14 @@ export function useQrCode(): QrCodeState {
     kind.value = next
   }
   const style = ref<Style>(defaultStyle())
+  // The style that is drawn and exported. An EPC code (EPC069-12) stays at
+  // error correction level M, which a logo's repair would raise, so a SEPA
+  // code drops the logo and fixes level M. The stored style keeps the logo,
+  // so it is drawn again when the kind changes back. This is the one place
+  // the rule lives.
+  const drawStyle = computed<Style>(() =>
+    kind.value === 'sepa' ? { ...style.value, logo: null, level: 'M' } : style.value,
+  )
   const status = ref<Status>('empty')
   // Shallow on purpose, twice over: the result is replaced whole and never
   // edited, and making it deeply reactive would both strip the Matrix of
@@ -112,7 +122,7 @@ export function useQrCode(): QrCodeState {
 
     status.value = 'working'
     try {
-      const drawn = render(content.value, style.value)
+      const drawn = render(content.value, drawStyle.value, kind.value === 'sepa' ? 'M' : 'H')
       result.value = markRaw(drawn)
       adjusted.value = drawn.adjusted
       status.value = 'ready'
@@ -133,7 +143,7 @@ export function useQrCode(): QrCodeState {
   // creation would only reassign them to the values they already hold,
   // before a caller such as useUrlFragment gets a chance to restore a
   // shared link's own text and style.
-  watch([content, style], redraw, { deep: true })
+  watch([content, style, drawStyle], redraw, { deep: true })
 
   return {
     text,
@@ -144,6 +154,7 @@ export function useQrCode(): QrCodeState {
     notice,
     switchKind,
     style,
+    drawStyle,
     status,
     result,
     problem,

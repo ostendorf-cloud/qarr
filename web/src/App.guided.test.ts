@@ -114,6 +114,18 @@ describe('guided input', () => {
     expect(name).toHaveAccessibleDescription('This field is required.')
   })
 
+  it('takes no logo for a SEPA transfer, and gives it back for other types', async () => {
+    renderApp()
+    expect(screen.getByRole('button', { name: 'Add a logo' })).toBeEnabled()
+
+    await chooseKind('SEPA transfer')
+    expect(screen.getByRole('button', { name: 'Add a logo' })).toBeDisabled()
+    expect(screen.getByText(/A SEPA code takes no logo/)).toBeVisible()
+
+    await chooseKind('WiFi')
+    expect(screen.getByRole('button', { name: 'Add a logo' })).toBeEnabled()
+  })
+
   it('says what a switch of type left behind, and keeps it for the way back', async () => {
     renderApp()
     await chooseKind('WiFi')

@@ -53,6 +53,16 @@ const { locale } = useLanguage()
         oder en) im lokalen Speicher Ihres Browsers unter dem Schlüssel govue-language. Er wird
         nicht an den Server gesendet. Sie können ihn in den Browser-Einstellungen löschen.
       </p>
+      <p>
+        Wenn Sie eine Vorlage speichern, legt die Seite im lokalen Speicher Ihres Browsers unter den
+        Schlüsseln qarr.templates und qarr.template-logo.* den Namen, die Farben, die Form und ein
+        Logo der Vorlage ab. Ein Logo wird dabei als Bilddaten gespeichert, höchstens 256 mal 256
+        Pixel groß. Vorlagen werden nie an den Server gesendet und verlassen den Browser nicht. Sie
+        löschen eine Vorlage mit der Schaltfläche Löschen in der Seite, alle Vorlagen mit dem
+        Löschen der Website-Daten in den Browser-Einstellungen. Die Funktion Exportieren schreibt
+        eine Datei auf Ihr Gerät. Diese Datei enthält die Vorlagen, auch die Logos. Sie liegt dann
+        in Ihrer Verantwortung.
+      </p>
 
       <h2 class="text-xl font-semibold">Zählung von Seitenaufrufen</h2>
       <p>
@@ -139,6 +149,15 @@ const { locale } = useLanguage()
         If you change the language with the language switch, the page stores the language code (de
         or en) in your browser's local storage under the key govue-language. It is not sent to the
         server. You can delete it in your browser settings.
+      </p>
+      <p>
+        If you save a template, the page stores its name, colours, shape and logo in your browser's
+        local storage under the keys qarr.templates and qarr.template-logo.*. A logo is stored as
+        image data, at most 256 by 256 pixels. Templates are never sent to the server and do not
+        leave your browser. You delete one template with the Delete button on the page, and all of
+        them by clearing the site data in your browser settings. The export function writes a file
+        to your device. That file contains the templates, including the logos. It is then in your
+        hands.
       </p>
 
       <h2 class="text-xl font-semibold">Page view counting</h2>

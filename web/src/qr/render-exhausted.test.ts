@@ -25,6 +25,14 @@ describe('render, once nothing it draws reads back', () => {
     expect(() => render(content, defaultStyle())).toThrow(/does not read back/)
   })
 
+  it('never raises a code past the level its kind fixes, and says so', () => {
+    const attempt = () => render(content, defaultStyle(), 'M')
+
+    expect(attempt).toThrow(RenderError)
+    expect(attempt).toThrow(/does not read back at level M, which this kind of code requires/)
+    expect(attempt).not.toThrow(/level [QH]/)
+  })
+
   it('says the logo was already at its smallest when that repair runs out too', () => {
     const side = 64
     const logo: Logo = {

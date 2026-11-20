@@ -4,6 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 
+import { defaultStyle } from '../qr/style'
 import { summary, useQrCode } from './useQrCode'
 
 afterEach(() => {
@@ -120,5 +121,77 @@ describe('summary', () => {
   it('is empty before anything has been drawn', () => {
     const code = useQrCode()
     expect(summary(code)).toBe('')
+  })
+})
+
+describe('a SEPA code (EPC069-12)', () => {
+  const logo = {
+    pixels: new Uint8ClampedArray(4 * 4 * 4),
+    width: 4,
+    height: 4,
+    fraction: 0.2,
+    plate: true,
+  }
+
+  function sepa() {
+    const code = useQrCode()
+    code.style.value = { ...defaultStyle(), level: 'H', logo }
+    code.switchKind('sepa')
+    code.fields.value.sepa = {
+      name: 'Example Association',
+      iban: 'DE89 3704 0044 0532 0130 00',
+    }
+    return code
+  }
+
+  it('draws no logo and stays at level M when the kind is SEPA, with a logo set', async () => {
+    const code = sepa()
+    await nextTick()
+
+    expect(code.status.value).toBe('ready')
+    expect(code.result.value?.level).toBe('M')
+    expect(code.result.value?.logoFraction).toBe(0)
+    expect(code.drawStyle.value.logo).toBeNull()
+    // The logo is not lost: it stays in the style that is stored.
+    expect(code.style.value.logo).toEqual(logo)
+  })
+
+  it('draws the logo and the chosen level again when the kind changes back', async () => {
+    const code = sepa()
+    await nextTick()
+    code.switchKind('text')
+    code.text.value = 'https://qarr.example/start'
+    await nextTick()
+
+    expect(code.result.value?.level).toBe('H')
+    expect(code.result.value?.logoFraction).toBe(0.2)
+    expect(code.drawStyle.value.logo).toEqual(logo)
+  })
+
+  it('redraws when only the kind changes to SEPA', async () => {
+    const code = useQrCode()
+    code.style.value = { ...defaultStyle(), level: 'H', logo }
+    code.fields.value.sepa = { name: 'A', iban: 'DE89 3704 0044 0532 0130 00' }
+    code.fields.value.tel = { number: '+49 151 1234567' }
+    code.switchKind('tel')
+    await nextTick()
+    expect(code.result.value?.logoFraction).toBe(0.2)
+
+    code.switchKind('sepa')
+    await nextTick()
+
+    expect(code.result.value?.level).toBe('M')
+    expect(code.result.value?.logoFraction).toBe(0)
+  })
+
+  it('keeps level M when a style with a logo is applied while the kind is SEPA', async () => {
+    const code = sepa()
+    await nextTick()
+
+    code.style.value = { ...code.style.value, shape: 'round', logo: { ...logo, fraction: 0.3 } }
+    await nextTick()
+
+    expect(code.result.value?.level).toBe('M')
+    expect(code.result.value?.logoFraction).toBe(0)
   })
 })

@@ -89,8 +89,9 @@
   genuinely needs the server? A server-side answer needs to be reconciled with
   [0001](../adr/0001-the-browser-renders-the-api-is-a-second-surface.md) for the CSV upload
   specifically.
-- What is the size limit for a saved template's logo in browser storage, and what happens once it
-  is exceeded?
+- Decided in issue 8: a saved template's logo is at most 256 by 256 pixels (256 KB), at most 8
+  templates are kept, and a save the browser refuses is reported. See AGENTS.md, "Saved
+  templates".
 - How large can a guided payload get before the page URL stops being comfortably shareable, and
   does the page warn before that point?
 - Which QR decoder runs in the browser to check what was just drawn, and what does it cost in

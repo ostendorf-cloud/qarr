@@ -23,8 +23,10 @@ const props = withDefaults(
     errors?: Errors
     /** What the last switch of kind left behind, to say so. */
     notice?: { from: Kind; dropped: string[] } | null
+    /** True for a SEPA code, which takes no logo (EPC069-12 fixes level M). */
+    logoBlocked?: boolean
   }>(),
-  { errors: () => ({}), notice: null },
+  { errors: () => ({}), notice: null, logoBlocked: false },
 )
 
 const emit = defineEmits<{ switchKind: [kind: Kind] }>()
@@ -215,6 +217,7 @@ const logoFractionId = useId()
         variant="secondary"
         class="w-fit"
         :loading="choosingLogo"
+        :disabled="logoBlocked"
         @click="logoInput?.click()"
       >
         {{ hasLogo ? 'Replace logo' : 'Add a logo' }}
@@ -225,9 +228,13 @@ const logoFractionId = useId()
         accept="image/*"
         class="sr-only"
         aria-label="Logo picture"
-        :disabled="choosingLogo"
+        tabindex="-1"
+        :disabled="choosingLogo || logoBlocked"
         @change="onLogoChosen"
       />
+      <p v-if="logoBlocked" :lang="locale()" class="text-sm text-text-muted">
+        {{ t('logo.sepaBlocked') }}
+      </p>
       <p class="text-sm text-text-muted">Up to {{ maxLogoKB }} KB.</p>
       <p v-if="logoError" role="alert" class="text-sm text-danger-text">{{ logoError }}</p>
 
