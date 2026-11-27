@@ -74,7 +74,7 @@
 - Moving generation to the server keeps both properties for every single-code use of the app,
   but the uploaded CSV, which can itself carry WiFi passwords or contact data, then reaches a
   server for this one feature, which is the property the rest of the app is built against.
-- Decided: the browser generates, in a worker, capped at 1000 rows; larger batches use the API.
+- Decided: the browser generates, in a worker, capped at 100 rows; larger batches use the API.
   See [0004](../adr/0004-batch-generation-runs-in-the-browser-and-is-capped.md).
 
 ## Alternatives considered

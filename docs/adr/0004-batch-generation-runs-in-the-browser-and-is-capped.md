@@ -23,11 +23,13 @@ proposed
 ## Decision
 
 We will generate batches in the browser, in a worker, one code at a time, with an upper bound of
-1000 rows per batch.
+100 rows per batch.
 
+- The bound of 100 rows is a decision of the owner, made on 2026-11-27. It sits well below what
+  the measurement above allows, and it is not derived from that measurement.
 - The page reads the CSV locally, draws and checks each code, hands it to the archive or sheet
   writer and drops the buffer, so memory stays flat at one code plus the output.
-- Past 1000 rows the page generates nothing, says so with the row count, and points to splitting
+- Past 100 rows the page generates nothing, says so with the row count, and points to splitting
   the file or to the API. It never truncates a batch silently.
 - The CSV never leaves the tab, so 0001 holds unchanged and no exception to it is needed.
 - The API stays the surface for larger or scripted batches. A caller with a key is a different
@@ -39,13 +41,12 @@ We will generate batches in the browser, in a worker, one code at a time, with a
 - Positive: the privacy claim of 0001 stays "it never arrives" for batches too.
 - Positive: no new server code, upload path, request size limit or log to protect for this
   feature.
-- Negative: a visitor with more than 1000 rows has to split the file or use the API, which needs
+- Negative: a visitor with more than 100 rows has to split the file or use the API, which needs
   a key.
 - Negative: the worker, the archive writer and the PDF writer are client code that adds to the
   page weight budget, and the budget impact is not measured yet.
-- Negative: the 1000 row bound comes from a Node measurement, not from browsers. The
-  implementation issue re-measures in a real browser and on a slow phone, and may lower the
-  bound.
+- Negative: the measurement above comes from Node, not from browsers. The bound of 100 rows does
+  not rest on it. The implementation issue re-measures in a real browser and on a slow phone.
 - Neutral: PNG encoding, archive writing and the sheet layout are not in the measured cost.
 - Neutral: the bound is one constant, so changing it needs no new record unless the decision
   changes.
