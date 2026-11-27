@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +32,8 @@ type renovateConfig struct {
 		MatchManagers     []string          `json:"matchManagers"`
 		GroupName         string            `json:"groupName"`
 		Constraints       map[string]string `json:"constraints"`
+		AllowedVersions   string            `json:"allowedVersions"`
+		Description       string            `json:"description"`
 	} `json:"packageRules"`
 }
 
@@ -108,7 +111,7 @@ func TestRenovateGroupsPnpmPins(t *testing.T) {
 			continue
 		}
 		found++
-		for _, manager := range []string{"mise", "renovate-config"} {
+		for _, manager := range []string{"mise", "custom.regex", "renovate-config"} {
 			if !slices.Contains(rule.MatchManagers, manager) {
 				t.Errorf("pnpm rule matchManagers = %v, want it to include %q", rule.MatchManagers, manager)
 			}
@@ -120,6 +123,113 @@ func TestRenovateGroupsPnpmPins(t *testing.T) {
 
 	if found != 1 {
 		t.Fatalf("want exactly one packageRules entry matching package pnpm, got %d", found)
+	}
+}
+
+// TestRenovateHoldsTypescriptBelowSeven fails when renovate.json has no rule that keeps
+// typescript below 7, when that range changes, or when the rule loses its description. The
+// hold exists because typescript-eslint and vue-tsc do not support 7 yet. The description
+// is the only place that names when to remove the rule.
+func TestRenovateHoldsTypescriptBelowSeven(t *testing.T) {
+	t.Parallel()
+
+	cfg := readRenovateConfig(t)
+
+	var found int
+	for _, rule := range cfg.PackageRules {
+		if !slices.Contains(rule.MatchPackageNames, "typescript") {
+			continue
+		}
+		found++
+		if rule.AllowedVersions != "<7" {
+			t.Errorf("typescript rule allowedVersions = %q, want %q", rule.AllowedVersions, "<7")
+		}
+		if !strings.Contains(rule.Description, "Remove this rule when") {
+			t.Errorf("typescript rule description = %q, want it to name the condition to remove the rule", rule.Description)
+		}
+	}
+
+	if found != 1 {
+		t.Fatalf("want exactly one packageRules entry matching package typescript, got %d", found)
+	}
+}
+
+// dockerfilePath is the repository's Dockerfile, relative to this package.
+const dockerfilePath = "../../Dockerfile"
+
+var (
+	// dockerfilePnpm is the version argument Renovate updates. dockerfileCorepack is the
+	// one install line, which must take that argument and no literal.
+	dockerfilePnpm     = regexp.MustCompile(`(?m)^ARG PNPM_VERSION=(\S+)$`)
+	dockerfileCorepack = regexp.MustCompile(`corepack prepare (\S+) --activate`)
+)
+
+// TestDockerfilePnpmMatchesMise fails when the Dockerfile's frontend stage installs a
+// different pnpm than mise.toml pins. The lockfile the image reads with --frozen-lockfile
+// has to come from the same pnpm a local install uses.
+func TestDockerfilePnpmMatchesMise(t *testing.T) {
+	t.Parallel()
+
+	docker, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		t.Fatalf("read Dockerfile: %v", err)
+	}
+	pin := misePnpm(t)
+
+	arg := dockerfilePnpm.FindStringSubmatch(string(docker))
+	if arg == nil {
+		t.Fatal("Dockerfile has no 'ARG PNPM_VERSION=<version>' line")
+	}
+	installs := dockerfileCorepack.FindAllStringSubmatch(string(docker), -1)
+	if len(installs) != 1 || installs[0][1] != `"pnpm@${PNPM_VERSION}"` {
+		t.Fatalf(`Dockerfile must install pnpm once, as corepack prepare "pnpm@${PNPM_VERSION}" --activate, got %q`, installs)
+	}
+	if arg[1] != pin {
+		t.Fatalf("Dockerfile installs pnpm %s but mise.toml pins pnpm %s: they must match", arg[1], pin)
+	}
+}
+
+// TestRenovateReadsTheDockerfilePnpm fails when no regex custom manager of renovate.json
+// extracts the npm datasource, the depName pnpm and the mise.toml version from the
+// Dockerfile's PNPM_VERSION argument. Renovate's Dockerfile manager does not read an ARG.
+// Renovate's named group syntax, (?<name>...), is also Go's.
+func TestRenovateReadsTheDockerfilePnpm(t *testing.T) {
+	t.Parallel()
+
+	docker, err := os.ReadFile(dockerfilePath)
+	if err != nil {
+		t.Fatalf("read Dockerfile: %v", err)
+	}
+	pin := misePnpm(t)
+
+	found := false
+	for _, manager := range readRenovateConfig(t).CustomManagers {
+		if manager.CustomType != "regex" || !slices.Contains(manager.ManagerFilePattern, "/^Dockerfile$/") {
+			continue
+		}
+		for _, expr := range manager.MatchStrings {
+			re, err := regexp.Compile(expr)
+			if err != nil {
+				t.Fatalf("matchStrings %q does not compile: %v", expr, err)
+			}
+			match := re.FindStringSubmatch(string(docker))
+			if match == nil {
+				continue
+			}
+			named := map[string]string{}
+			for i, name := range re.SubexpNames() {
+				if name != "" {
+					named[name] = match[i]
+				}
+			}
+			if named["datasource"] != "npm" || named["depName"] != "pnpm" || named["currentValue"] != pin {
+				t.Errorf("the Dockerfile manager extracts %v, want datasource npm, depName pnpm, version %s", named, pin)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("no regex manager of renovate.json matches the Dockerfile's PNPM_VERSION argument")
 	}
 }
 
