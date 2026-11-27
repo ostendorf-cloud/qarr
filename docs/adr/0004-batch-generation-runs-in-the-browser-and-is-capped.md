@@ -27,11 +27,16 @@ We will generate batches in the browser, in a worker, one code at a time, with a
 
 - The bound of 100 rows is a decision of the owner, made on 2026-11-27. It sits well below what
   the measurement above allows, and it is not derived from that measurement.
+- The worker keeps the page responsive while the rows are drawn and decoded. The measurement
+  above ran on the main thread, so it gives the cost, not the effect on input.
 - The page reads the CSV locally, draws and checks each code, hands it to the archive or sheet
   writer and drops the buffer, so memory stays flat at one code plus the output.
 - Past 100 rows the page generates nothing, says so with the row count, and points to splitting
   the file or to the API. It never truncates a batch silently.
-- The CSV never leaves the tab, so 0001 holds unchanged and no exception to it is needed.
+- The CSV never leaves the tab, so the privacy claim of 0001 holds and no exception to it is
+  needed. 0001 rejected dropping the API because a browser is the wrong place for batch
+  generation and scripted use. This record narrows that: a bounded batch from a visitor runs in
+  the browser, scripted and larger batches stay with the API.
 - The API stays the surface for larger or scripted batches. A caller with a key is a different
   trust situation from a visitor, and the CSV reaches the server only when that caller sends it.
 - The API's own batch limit is set when it is built, and is not decided here.
