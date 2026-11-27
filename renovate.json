@@ -29,7 +29,7 @@
       "description": "A govue release is one tag with a Go module and an npm package. Both halves move in one pull request, because task check:govue-version refuses a repository that pins them to different tags. Renovate regenerates no lock file for the custom manager, so the govue-lockfile preset of the shared workflows repository runs one fixed post upgrade command for web/pnpm-lock.yaml. The pnpm constraint equals the pin in mise.toml and moves with it.",
       "matchPackageNames": ["github.com/ostendorf-cloud/govue", "ostendorf-cloud/govue"],
       "groupName": "govue",
-      "constraints": { "pnpm": "12.21.0" }
+      "constraints": { "pnpm": "12.23.0" }
     },
     {
       "description": "pnpm is pinned in mise.toml (mise manager), in the Dockerfile's PNPM_VERSION (the regex manager above) and in the govue rule's constraints.pnpm, which Renovate reads itself as a tool constraint (renovate-config manager). All three move in one pull request: internal/depsync's TestDockerfilePnpmMatchesMise and TestRenovateGroupsGovueHalves fail when they differ.",
