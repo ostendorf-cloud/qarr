@@ -92,6 +92,8 @@ const en: MessageTree = {
   logo: {
     sepaBlocked:
       'A SEPA code takes no logo. The EPC format fixes error correction level M, which a logo would raise. A logo you added is kept and drawn again for other types.',
+    presets: 'Or choose one of the logos this site offers',
+    presetFailed: 'That logo could not be loaded. Try again, or add a picture of your own.',
   },
   templates: {
     title: 'Templates',
@@ -226,6 +228,9 @@ const de: MessageTree = {
   logo: {
     sepaBlocked:
       'Ein SEPA-Code nimmt kein Logo auf. Das EPC-Format legt die Fehlerkorrektur auf Stufe M fest, die ein Logo anheben würde. Ein hinzugefügtes Logo bleibt erhalten und wird bei anderen Typen wieder gezeichnet.',
+    presets: 'Oder wählen Sie eines der Logos dieser Seite',
+    presetFailed:
+      'Dieses Logo konnte nicht geladen werden. Versuchen Sie es erneut oder fügen Sie ein eigenes Bild hinzu.',
   },
   templates: {
     title: 'Vorlagen',

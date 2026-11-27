@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App.vue'
 import { messages } from './i18n/messages'
+import { carriedNoBody, ONLY_THE_LIST, requested } from './presets/requests'
 import { decodeFragment, encodeFragment } from './url/fragment'
 import { defaultStyle } from './qr/style'
 
@@ -132,7 +133,9 @@ describe('App', () => {
     )
 
     expect(await screen.findByRole('img', { name: 'The drawn code' })).toBeVisible()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    // The one request is the list of preset logos, which carries nothing typed.
+    expect(requested(fetchSpy)).toEqual(ONLY_THE_LIST)
+    expect(carriedNoBody(fetchSpy)).toBe(true)
   })
 
   it("says the page's own address carries the text, colours and shape, but never a logo", () => {
@@ -184,7 +187,8 @@ describe('App', () => {
 
       expect(decodeFragment(window.location.hash.slice(1))?.text).toBe('https://qarr.example/typed')
       expect(history.length).toBe(lengthBefore)
-      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(requested(fetchSpy)).toEqual(ONLY_THE_LIST)
+      expect(carriedNoBody(fetchSpy)).toBe(true)
       expect(openSpy).not.toHaveBeenCalled()
       expect(globalThis.Worker).not.toHaveBeenCalled()
       expect(beacon).not.toHaveBeenCalled()

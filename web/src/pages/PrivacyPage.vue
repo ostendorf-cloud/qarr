@@ -30,6 +30,11 @@ const { locale } = useLanguage()
         den Server gesendet. Die Seite fragt dafür keinen Server an.
       </p>
       <p>
+        Die Seite fragt ihren eigenen Server nur nach der Liste der Logos, die er anbietet, und nach
+        einem Logo, das Sie aus dieser Liste wählen. Diese Anfragen enthalten weder Ihren Text noch
+        Ihre Farben oder ein Logo von Ihnen. Ein Logo von Ihrem Gerät wird nie gesendet.
+      </p>
+      <p>
         Die Adresse der Seite trägt Text, Farben und Form des Codes in dem Teil nach dem #. Ein
         Browser sendet diesen Teil nie an einen Server. Er bleibt in Ihrem Browser, auch im Verlauf.
         Die Adresse ist nur so privat wie der Ort, an den Sie sie einfügen. Ein Logo, das Sie
@@ -125,6 +130,11 @@ const { locale } = useLanguage()
       <p>
         The content of a QR code is computed and drawn in your browser. It is not sent to the
         server. The page makes no request to a server for it.
+      </p>
+      <p>
+        The page asks its own server only for the list of logos it offers and for a logo you pick
+        from that list. Those requests carry neither your text nor your colours nor a logo of yours.
+        A logo from your device is never sent.
       </p>
       <p>
         The address of the page carries the text, colours and shape of the code in the part after

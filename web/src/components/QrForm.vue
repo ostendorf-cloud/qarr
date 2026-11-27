@@ -2,7 +2,7 @@
 // Copyright 2026 Simon Ostendorf
 // SPDX-License-Identifier: Apache-2.0
 
-import { computed, ref, useId, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, useTemplateRef } from 'vue'
 import {
   GovueButton,
   GovueCheckbox,
@@ -13,6 +13,7 @@ import {
 
 import { useQarrText } from '../i18n/messages'
 import { emptyFields, isKind, KINDS, type AllFields, type Errors, type Kind } from '../qr/guided'
+import { fetchPreset, labelOf, listPresets, type Preset } from '../presets/presets'
 import { fromFile, ImageError, MAX_LOGO_BYTES } from '../qr/logo'
 import type { Style } from '../qr/style'
 import GuidedFields from './GuidedFields.vue'
@@ -116,6 +117,12 @@ const logoPlate = computed({
   },
 })
 
+/** Reads a picture as the logo. A file from the device and a preset both end here. */
+async function useLogoFile(file: File): Promise<void> {
+  const logo = await fromFile(file, style.value.logo?.fraction ?? 0.2, true)
+  patch({ logo })
+}
+
 async function onLogoChosen(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -125,11 +132,34 @@ async function onLogoChosen(event: Event): Promise<void> {
   logoError.value = ''
   choosingLogo.value = true
   try {
-    const logo = await fromFile(file, style.value.logo?.fraction ?? 0.2, true)
-    patch({ logo })
+    // A picture from the device is read in this tab and never requested from
+    // or sent to the server.
+    await useLogoFile(file)
   } catch (caught) {
     logoError.value =
       caught instanceof ImageError ? caught.message : 'that picture could not be used'
+  } finally {
+    choosingLogo.value = false
+  }
+}
+
+// The presets a deployment offers. An empty list, a failed request and a
+// deployment with no source all look the same: the box offers upload only.
+const presets = ref<Preset[]>([])
+const presetsAbort = new AbortController()
+
+onMounted(async () => {
+  presets.value = await listPresets(presetsAbort.signal)
+})
+onBeforeUnmount(() => presetsAbort.abort())
+
+async function onPresetChosen(preset: Preset): Promise<void> {
+  logoError.value = ''
+  choosingLogo.value = true
+  try {
+    await useLogoFile(await fetchPreset(preset, presetsAbort.signal))
+  } catch (caught) {
+    logoError.value = caught instanceof ImageError ? caught.message : t('logo.presetFailed')
   } finally {
     choosingLogo.value = false
   }
@@ -236,6 +266,22 @@ const logoFractionId = useId()
         {{ t('logo.sepaBlocked') }}
       </p>
       <p class="text-sm text-text-muted">Up to {{ maxLogoKB }} KB.</p>
+
+      <div v-if="presets.length > 0" :lang="locale()" class="flex flex-col gap-2">
+        <h4 id="preset-heading" class="text-sm font-medium text-text">{{ t('logo.presets') }}</h4>
+        <ul aria-labelledby="preset-heading" class="flex flex-wrap gap-2">
+          <li v-for="preset in presets" :key="preset.name">
+            <GovueButton
+              type="button"
+              variant="secondary"
+              :disabled="choosingLogo || logoBlocked"
+              @click="onPresetChosen(preset)"
+            >
+              {{ labelOf(preset) }}
+            </GovueButton>
+          </li>
+        </ul>
+      </div>
       <p v-if="logoError" role="alert" class="text-sm text-danger-text">{{ logoError }}</p>
 
       <template v-if="hasLogo">

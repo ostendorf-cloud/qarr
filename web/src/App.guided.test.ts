@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App.vue'
 import { messages } from './i18n/messages'
+import { carriedNoBody, ONLY_THE_LIST, requested } from './presets/requests'
 import { decodeFragment, encodeFragment } from './url/fragment'
 import { defaultStyle } from './qr/style'
 
@@ -82,7 +83,8 @@ describe('guided input', () => {
       fields: { security: 'WPA', ssid: 'Caf;e', password: 'pa;ss"wo:rd,1' },
     })
 
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(requested(fetchSpy)).toEqual(ONLY_THE_LIST)
+    expect(carriedNoBody(fetchSpy)).toBe(true)
     expect(openSpy).not.toHaveBeenCalled()
     expect(globalThis.Worker).not.toHaveBeenCalled()
     expect(beacon).not.toHaveBeenCalled()
