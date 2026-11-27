@@ -38,6 +38,12 @@ pnpm git dependency must always name the same tag: a mismatch means this reposit
 of a govue release and not the other half, silently. `task check:govue-version`
 (`internal/depsync`) enforces this, the same way ostendorf.tech's own copy of this check does.
 
+Renovate raises both halves as one pull request, group `govue` in `renovate.json`. Its npm
+manager skips the `&path:/web` specifier, so a regex custom manager reads the tag from
+`web/package.json`. The shared `govue-lockfile` preset regenerates `web/pnpm-lock.yaml`. The
+rule's `constraints.pnpm` equals the pnpm pin in `mise.toml`: move both together.
+`internal/depsync/renovate_test.go` fails when the group, the manager or the constraint drifts.
+
 ## What this app will become
 
 qarr encodes and draws a QR code entirely in the browser: a WiFi password, a vCard or any other
