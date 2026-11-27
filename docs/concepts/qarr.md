@@ -74,7 +74,8 @@
 - Moving generation to the server keeps both properties for every single-code use of the app,
   but the uploaded CSV, which can itself carry WiFi passwords or contact data, then reaches a
   server for this one feature, which is the property the rest of the app is built against.
-- Not decided; see open questions.
+- Decided: the browser generates, in a worker, capped at 1000 rows; larger batches use the API.
+  See [0004](../adr/0004-batch-generation-runs-in-the-browser-and-is-capped.md).
 
 ## Alternatives considered
 
@@ -85,10 +86,8 @@
 
 ## Open questions
 
-- Does batch generation and the print sheet stay in the browser, or is it the first feature that
-  genuinely needs the server? A server-side answer needs to be reconciled with
-  [0001](../adr/0001-the-browser-renders-the-api-is-a-second-surface.md) for the CSV upload
-  specifically.
+- Decided in issue 9: batch generation stays in the browser. See
+  [0004](../adr/0004-batch-generation-runs-in-the-browser-and-is-capped.md).
 - Decided in issue 8: a saved template's logo is at most 256 by 256 pixels (256 KB), at most 8
   templates are kept, and a save the browser refuses is reported. See AGENTS.md, "Saved
   templates".
@@ -102,3 +101,4 @@
 - [0001. The browser renders, the API is a second surface](../adr/0001-the-browser-renders-the-api-is-a-second-surface.md)
 - [0002. The configuration lives in the page URL](../adr/0002-the-configuration-lives-in-the-page-url.md)
 - [0003. Preset logos come from a bucket and qarr serves them](../adr/0003-preset-logos-come-from-a-bucket-and-qarr-serves-them.md)
+- [0004. Batch generation runs in the browser and is capped](../adr/0004-batch-generation-runs-in-the-browser-and-is-capped.md)
