@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -31,6 +32,8 @@ type renovateConfig struct {
 		MatchManagers     []string          `json:"matchManagers"`
 		GroupName         string            `json:"groupName"`
 		Constraints       map[string]string `json:"constraints"`
+		AllowedVersions   string            `json:"allowedVersions"`
+		Description       string            `json:"description"`
 	} `json:"packageRules"`
 }
 
@@ -120,6 +123,34 @@ func TestRenovateGroupsPnpmPins(t *testing.T) {
 
 	if found != 1 {
 		t.Fatalf("want exactly one packageRules entry matching package pnpm, got %d", found)
+	}
+}
+
+// TestRenovateHoldsTypescriptBelowSeven fails when renovate.json has no rule that keeps
+// typescript below 7, when that range changes, or when the rule loses its description. The
+// hold exists because typescript-eslint and vue-tsc do not support 7 yet. The description
+// is the only place that names when to remove the rule.
+func TestRenovateHoldsTypescriptBelowSeven(t *testing.T) {
+	t.Parallel()
+
+	cfg := readRenovateConfig(t)
+
+	var found int
+	for _, rule := range cfg.PackageRules {
+		if !slices.Contains(rule.MatchPackageNames, "typescript") {
+			continue
+		}
+		found++
+		if rule.AllowedVersions != "<7" {
+			t.Errorf("typescript rule allowedVersions = %q, want %q", rule.AllowedVersions, "<7")
+		}
+		if !strings.Contains(rule.Description, "Remove this rule when") {
+			t.Errorf("typescript rule description = %q, want it to name the condition to remove the rule", rule.Description)
+		}
+	}
+
+	if found != 1 {
+		t.Fatalf("want exactly one packageRules entry matching package typescript, got %d", found)
 	}
 }
 
