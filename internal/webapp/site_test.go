@@ -54,7 +54,7 @@ func siteFS() fstest.MapFS {
 
 func newHandler(t *testing.T, dist fs.FS) http.Handler {
 	t.Helper()
-	h, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil)
+	h, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil, nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestHandler_ReplacesTheBakedInOriginBySiteURL(t *testing.T) {
 	dist["de/index.html"] = &fstest.MapFile{Data: []byte(page)}
 
 	site := &url.URL{Scheme: "https", Host: "staging.example.test:8443"}
-	h, err := webapp.Handler(dist, site, testLogger(), nil)
+	h, err := webapp.Handler(dist, site, testLogger(), nil, nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestHandler_ReplacesTheBakedInOriginBySiteURL(t *testing.T) {
 	}
 
 	// The default origin leaves the files as built.
-	h, err = webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.de"}, testLogger(), nil)
+	h, err = webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.de"}, testLogger(), nil, nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestHandler_FailsWhenTheSiteIsIncomplete(t *testing.T) {
 		"a duplicate loc":           withSitemap(append(append([]string{}, allLocs...), allLocs[0])...),
 	}
 	for name, dist := range cases {
-		if _, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil); err == nil {
+		if _, err := webapp.Handler(dist, &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), nil, nil); err == nil {
 			t.Errorf("%s: Handler returned no error", name)
 		}
 	}
