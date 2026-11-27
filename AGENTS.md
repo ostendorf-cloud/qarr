@@ -12,6 +12,8 @@ The global baseline already applies here and is not repeated below.
 - `internal/webapp` builds the two `http.Handler`s govue's `httpserver.RunAdmin` serves: the
   public one, the embedded SPA; the admin one, health, readiness and metrics, reached only from
   inside the cluster.
+- `internal/logos` lists and serves the preset logos from a directory or an S3 bucket, see
+  "Preset logos".
 - `internal/depsync` checks that `go.mod` and `web/package.json` pin the same govue tag, and
   that `web/pnpm-lock.yaml`'s own resolution of it still carries govue's Vue package
   subdirectory. A generic pattern, not qarr's own domain logic.
@@ -60,8 +62,8 @@ calls no API, so the API can require one from every caller without exception.
 
 `web/src/qr` encodes a free text payload, draws it on a plain RGBA buffer with the user's own
 colours, module shape and an optional logo, and decodes that same buffer again before the page
-shows it. All of it runs in the tab; nothing in `web/src/qr` or the components that call it makes
-a network request. See [0001](docs/adr/0001-the-browser-renders-the-api-is-a-second-surface.md).
+shows it. All of it runs in the tab; `web/src/qr` makes no network request, and `QrForm` requests
+only the logo list and a chosen preset, from its own origin. See [0001](docs/adr/0001-the-browser-renders-the-api-is-a-second-surface.md).
 
 - Encoder: [`qrcode-generator`](https://www.npmjs.com/package/qrcode-generator), pinned to
   `2.0.4`. It implements the standard's own mask selection rather than picking a mask of its
@@ -195,6 +197,22 @@ the `lang` of the address.
   colours and shape only for that kind.
 - A change to what is stored needs an update of `web/src/pages/PrivacyPage.vue` (both languages).
 
+## Preset logos
+
+`internal/logos` serves them, `web/src/presets` asks for them. See
+[0003](docs/adr/0003-preset-logos-come-from-a-bucket-and-qarr-serves-them.md).
+
+- Two sources, never both: `LOGOS_DIR`, or an S3 bucket (`LOGOS_S3_*`, path style, own SigV4
+  client). The region defaults to `us-east-1`. With neither, the page offers upload only.
+- Routes `/logos.json` (never cached) and `/logos/{name}` (cached one hour), on this origin and
+  never a redirect, so the canvas stays untainted.
+- Served: PNG, JPEG and SVG, a plain file name, at most 2 MiB (`logos.MaxBytes`, equal to
+  `MAX_LOGO_BYTES` in `web/src/qr/logo.ts`). The page reads a preset like an uploaded file.
+- An unreadable source stops the start. After that the presets are a soft dependency: no
+  readiness check, `/logos.json` answers 502 when the source fails.
+- The two routes are not pages, so the view counter never reports them. No `Options.Skip` needed.
+- A change to what the page requests needs an update of `web/src/pages/PrivacyPage.vue`.
+
 ## Page view counting
 
 The server reports page views to Umami through govue's `analytics` package. Nothing is built
@@ -240,11 +258,11 @@ Implemented: the entry point and its two listeners, the health/readiness/metrics
 the SPA shell and its theme, the Helm chart, the CI set that checks all of it, encoding, drawing,
 the logo and error correction repair, the decode check, the PNG/SVG download, and the
 configuration living in the page URL fragment, guided input for WiFi, vCard, an appointment, a
-telephone number and a SEPA transfer, and saved templates in the browser.
+telephone number and a SEPA transfer, saved templates in the browser, and preset logos.
 
 Not implemented yet, later milestones:
 
-- The bucket client for preset logos, and every API route.
+- Every API route.
 - Batch generation and a print sheet: CSV in, many codes out, as an archive or a cut-marked PDF
   sheet.
 
@@ -257,10 +275,10 @@ Not implemented yet, later milestones:
 - `.github/workflows/codeql.yaml` and the `license` job inside `checks.yaml` exist because this
   repository is public: code scanning needs no GitHub Advanced Security entitlement here, and a
   per-file license header is enforced the way govue's own is.
-- `charts/qarr/values.schema.json`'s top-level `required` array omits `existingSecret`: this
-  milestone has no secret-shaped setting at all (no API key, no bucket credential yet), so there
-  is nothing for an `existingSecret` value to name. One is added once a later milestone
-  introduces its first secret.
+- `charts/qarr/values.schema.json`'s top-level `required` array omits `existingSecret`: the
+  only secret-shaped setting is the bucket key, `config.logos.s3.existingSecret`, and the bucket
+  is optional. A default install needs no Secret, and the render fails when a bucket is set
+  without one.
 - No `NetworkPolicy` template and no single-replica guard in the Helm chart: qarr has no
   workload to restrict egress to yet, and keeps no in-process session state, unlike
   ostendorf.tech's own chart.
