@@ -28,6 +28,7 @@ type renovateConfig struct {
 	} `json:"customManagers"`
 	PackageRules []struct {
 		MatchPackageNames []string          `json:"matchPackageNames"`
+		MatchManagers     []string          `json:"matchManagers"`
 		GroupName         string            `json:"groupName"`
 		Constraints       map[string]string `json:"constraints"`
 	} `json:"packageRules"`
@@ -90,6 +91,35 @@ func TestRenovateGroupsGovueHalves(t *testing.T) {
 	if len(groups) != 1 {
 		t.Fatalf("want exactly one packageRules group naming both %q and %q, got %d: %v",
 			goModulePath, "ostendorf-cloud/govue", len(groups), groups)
+	}
+}
+
+// TestRenovateGroupsPnpmPins fails when renovate.json has no rule that groups the pnpm pin
+// of mise.toml with the constraints.pnpm of the govue rule. Without it a pnpm bump of
+// mise.toml arrives alone, and TestRenovateGroupsGovueHalves fails on the stale constraint.
+func TestRenovateGroupsPnpmPins(t *testing.T) {
+	t.Parallel()
+
+	cfg := readRenovateConfig(t)
+
+	var found int
+	for _, rule := range cfg.PackageRules {
+		if !slices.Contains(rule.MatchPackageNames, "pnpm") {
+			continue
+		}
+		found++
+		for _, manager := range []string{"mise", "renovate-config"} {
+			if !slices.Contains(rule.MatchManagers, manager) {
+				t.Errorf("pnpm rule matchManagers = %v, want it to include %q", rule.MatchManagers, manager)
+			}
+		}
+		if rule.GroupName != "pnpm" {
+			t.Errorf("pnpm rule groupName = %q, want %q", rule.GroupName, "pnpm")
+		}
+	}
+
+	if found != 1 {
+		t.Fatalf("want exactly one packageRules entry matching package pnpm, got %d", found)
 	}
 }
 

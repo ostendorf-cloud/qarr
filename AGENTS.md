@@ -41,7 +41,8 @@ of a govue release and not the other half, silently. `task check:govue-version`
 Renovate raises both halves as one pull request, group `govue` in `renovate.json`. Its npm
 manager skips the `&path:/web` specifier, so a regex custom manager reads the tag from
 `web/package.json`. The shared `govue-lockfile` preset regenerates `web/pnpm-lock.yaml`. The
-rule's `constraints.pnpm` equals the pnpm pin in `mise.toml`: move both together.
+rule's `constraints.pnpm` equals the pnpm pin in `mise.toml`: a `pnpm` group in `renovate.json`
+moves both in one pull request.
 `internal/depsync/renovate_test.go` fails when the group, the manager or the constraint drifts.
 
 ## What this app will become
