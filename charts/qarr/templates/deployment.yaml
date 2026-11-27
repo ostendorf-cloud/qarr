@@ -20,6 +20,36 @@ spec:
   {{- if and .Values.ingress.enabled .Values.httpRoute.enabled }}
   {{ fail "ingress.enabled and httpRoute.enabled cannot both be true: pick one external route and turn the other off." }}
   {{- end }}
+  {{/*
+  The preset logo source: none, a directory or a bucket, never two. Checked
+  here for the same reason as the routing guard above. The application checks
+  its own environment again at start, but a mistake is cheaper to see at
+  render time than as a pod that stops.
+  */}}
+  {{- $logos := .Values.config.logos }}
+  {{- $dir := $logos.directory }}
+  {{- $s3 := $logos.s3 }}
+  {{- $s3Set := or $s3.endpoint $s3.bucket $s3.region $s3.prefix $s3.existingSecret.name }}
+  {{- if and $dir.path $s3Set }}
+  {{ fail "config.logos.directory and config.logos.s3 cannot both be set: pick one source for the preset logos." }}
+  {{- end }}
+  {{- if and $dir.path (not $dir.volume) }}
+  {{ fail "config.logos.directory.path needs config.logos.directory.volume: a volume source to mount at that path." }}
+  {{- end }}
+  {{- if and $dir.volume (not $dir.path) }}
+  {{ fail "config.logos.directory.volume needs config.logos.directory.path: the directory to mount it at." }}
+  {{- end }}
+  {{- if $s3Set }}
+  {{- if not $s3.endpoint }}
+  {{ fail "config.logos.s3.endpoint is required when a bucket is configured." }}
+  {{- end }}
+  {{- if not $s3.bucket }}
+  {{ fail "config.logos.s3.bucket is required when a bucket is configured." }}
+  {{- end }}
+  {{- if not $s3.existingSecret.name }}
+  {{ fail "config.logos.s3.existingSecret.name is required when a bucket is configured: the Secret holding the read-only key." }}
+  {{- end }}
+  {{- end }}
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
@@ -84,6 +114,40 @@ spec:
             - name: UMAMI_WEBSITE_ID
               value: {{ . | quote }}
             {{- end }}
+            {{- with $dir.path }}
+            - name: LOGOS_DIR
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if $s3Set }}
+            - name: LOGOS_S3_ENDPOINT
+              value: {{ $s3.endpoint | quote }}
+            - name: LOGOS_S3_BUCKET
+              value: {{ $s3.bucket | quote }}
+            {{- with $s3.region }}
+            - name: LOGOS_S3_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with $s3.prefix }}
+            - name: LOGOS_S3_PREFIX
+              value: {{ . | quote }}
+            {{- end }}
+            - name: LOGOS_S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $s3.existingSecret.name | quote }}
+                  key: {{ $s3.existingSecret.accessKeyIdKey | quote }}
+            - name: LOGOS_S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $s3.existingSecret.name | quote }}
+                  key: {{ $s3.existingSecret.secretAccessKeyKey | quote }}
+            {{- end }}
+          {{- with $dir.path }}
+          volumeMounts:
+            - name: logos
+              mountPath: {{ . | quote }}
+              readOnly: true
+          {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
             httpGet:
@@ -109,6 +173,11 @@ spec:
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      {{- if $dir.path }}
+      volumes:
+        - name: logos
+          {{- toYaml $dir.volume | nindent 10 }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
