@@ -3,7 +3,7 @@ module github.com/ostendorf-cloud/qarr
 go 1.27.4
 
 require (
-	github.com/ostendorf-cloud/govue v0.5.0
+	github.com/ostendorf-cloud/govue v0.12.0
 	github.com/prometheus/client_golang v1.25.0
 )
 
