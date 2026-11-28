@@ -26,6 +26,8 @@ type fakeSource struct {
 	size    int64
 	listErr error
 	openErr error
+	// body, when set, replaces the content as the body Open returns.
+	body func() io.Reader
 
 	mu     sync.Mutex
 	opened []string
@@ -48,7 +50,11 @@ func (f *fakeSource) Open(_ context.Context, name string) (*Object, error) {
 	if f.size != 0 {
 		size = f.size
 	}
-	return &Object{Body: io.NopCloser(strings.NewReader(content)), Size: size}, nil
+	var body io.Reader = strings.NewReader(content)
+	if f.body != nil {
+		body = f.body()
+	}
+	return &Object{Body: io.NopCloser(body), Size: size}, nil
 }
 
 func serve(t *testing.T, src Source, method, target string) (*httptest.ResponseRecorder, *bytes.Buffer) {
@@ -192,7 +198,7 @@ func TestHandler_PictureLength(t *testing.T) {
 		wantBody   string
 	}{
 		{"the reported size", 0, http.StatusOK, "6", "<svg/>"},
-		{"an unknown size is capped at the limit", -1, http.StatusOK, "", "<svg/>"},
+		{"an unknown size is measured by reading it", -1, http.StatusOK, "6", "<svg/>"},
 		{"a size over the limit", MaxBytes + 1, http.StatusNotFound, "", "404 page not found\n"},
 	}
 	for _, tt := range tests {
@@ -213,15 +219,64 @@ func TestHandler_PictureLength(t *testing.T) {
 	}
 }
 
-func TestHandler_PictureIsCapped(t *testing.T) {
+func TestHandler_PictureOverTheLimitWithoutASize(t *testing.T) {
 	t.Parallel()
-	content := strings.Repeat("x", MaxBytes+10)
-	src := &fakeSource{files: map[string]string{"a.png": content}, size: -1}
-	rec, _ := serve(t, src, http.MethodGet, "/logos/a.png")
-	if rec.Body.Len() != MaxBytes {
-		t.Errorf("body = %d bytes, want the limit of %d", rec.Body.Len(), MaxBytes)
+	tests := []struct {
+		name       string
+		method     string
+		length     int
+		wantStatus int
+	}{
+		{"one byte over", http.MethodGet, MaxBytes + 1, http.StatusNotFound},
+		{"far over", http.MethodGet, MaxBytes + 10, http.StatusNotFound},
+		{"head over", http.MethodHead, MaxBytes + 1, http.StatusNotFound},
+		{"exactly the limit", http.MethodGet, MaxBytes, http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			src := &fakeSource{files: map[string]string{"a.png": strings.Repeat("x", tt.length)}, size: -1}
+			rec, _ := serve(t, src, tt.method, "/logos/a.png")
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+			cc := rec.Header().Get("Cache-Control")
+			if tt.wantStatus == http.StatusNotFound {
+				// A picture that is cut off must never be kept by a cache.
+				if strings.Contains(cc, "max-age") {
+					t.Errorf("Cache-Control = %q: a refusal must not be cached", cc)
+				}
+				if rec.Body.Len() >= MaxBytes {
+					t.Errorf("body = %d bytes, want the 404 text", rec.Body.Len())
+				}
+				return
+			}
+			if rec.Body.Len() != MaxBytes {
+				t.Errorf("body = %d bytes, want %d", rec.Body.Len(), MaxBytes)
+			}
+		})
 	}
 }
+
+func TestHandler_PictureReadErrorWithoutASize(t *testing.T) {
+	t.Parallel()
+	src := &fakeSource{
+		files: map[string]string{"a.png": "x"},
+		size:  -1,
+		body:  func() io.Reader { return io.MultiReader(strings.NewReader("x"), errReader{}) },
+	}
+	rec, _ := serve(t, src, http.MethodGet, "/logos/a.png")
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
+	}
+}
+
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) { return 0, errors.New("connection reset") }
 
 func TestHandler_PictureNotServed(t *testing.T) {
 	t.Parallel()

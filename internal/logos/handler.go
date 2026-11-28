@@ -4,6 +4,7 @@
 package logos
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -92,20 +93,35 @@ func (h *handler) picture(w http.ResponseWriter, r *http.Request) {
 		notFound(w) // the listing leaves it out too
 		return
 	}
+	// A source that reports no size is read up to the limit and one byte more
+	// before the status is sent. Past the limit the picture is too big, the
+	// same answer as a known size over it, never a cut off 200 that a cache
+	// would keep.
+	var body io.Reader = obj.Body
+	size := obj.Size
+	if size < 0 {
+		buf, err := io.ReadAll(io.LimitReader(obj.Body, MaxBytes+1))
+		if err != nil {
+			h.fail(r.Context(), w, "read preset logo", err)
+			return
+		}
+		if len(buf) > MaxBytes {
+			notFound(w)
+			return
+		}
+		body, size = bytes.NewReader(buf), int64(len(buf))
+	}
 	hd := w.Header()
 	hd.Set("Content-Type", ContentType(name))
 	hd.Set("X-Content-Type-Options", "nosniff")
 	hd.Set("Content-Security-Policy", pictureCSP)
 	hd.Set("Cache-Control", pictureCache)
-	if obj.Size >= 0 {
-		hd.Set("Content-Length", strconv.FormatInt(obj.Size, 10))
-	}
+	hd.Set("Content-Length", strconv.FormatInt(size, 10))
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodHead {
 		return
 	}
-	// A source that reports no size is still held to the limit.
-	if _, err := io.Copy(w, io.LimitReader(obj.Body, MaxBytes)); err != nil {
+	if _, err := io.Copy(w, io.LimitReader(body, MaxBytes)); err != nil {
 		h.logger.WarnContext(r.Context(), "write preset logo", "name", name, "err", err)
 	}
 }
