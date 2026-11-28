@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 const (
@@ -44,28 +45,44 @@ type listed struct {
 // Register adds the listing and the picture route to mux. Both answer on this
 // origin only: a picture is read from the source and written to the reply, it
 // is never a redirect, so a canvas that draws it stays untainted.
+//
+// The listing is read from the source at most once per listingTTL. A picture
+// is opened at the source only when the listing holds its name.
 func Register(mux *http.ServeMux, src Source, logger *slog.Logger) {
-	h := &handler{src: src, logger: logger}
+	register(mux, newHandler(src, logger, time.Now))
+}
+
+func register(mux *http.ServeMux, h *handler) {
 	mux.HandleFunc("GET "+ListPath, h.list)
 	mux.HandleFunc("GET "+PicturePrefix+"{name}", h.picture)
+}
+
+func newHandler(src Source, logger *slog.Logger, now func() time.Time) *handler {
+	return &handler{
+		src:    src,
+		logger: logger,
+		cache:  &listCache{src: src, logger: logger, now: now},
+	}
 }
 
 type handler struct {
 	src    Source
 	logger *slog.Logger
+	cache  *listCache
 }
 
-// list answers with the pictures the source holds. It is never cached, so a
-// picture added to the source shows up on the next visit.
+// list answers with the pictures the source holds, as of the last refresh of
+// the in-memory listing. The reply tells a browser not to keep it: the
+// freshness is decided here, by listingTTL.
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	entries, err := h.src.List(r.Context())
+	entries, err := h.cache.get(r.Context())
 	if err != nil {
 		h.fail(r.Context(), w, "list preset logos", err)
 		return
 	}
 	body := listing{Logos: []listed{}}
-	for _, e := range Served(entries) {
+	for _, e := range entries {
 		body.Logos = append(body.Logos, listed{Name: e.Name, URL: PicturePrefix + e.Name})
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -75,10 +92,20 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// picture answers with one picture, with a cache lifetime.
+// picture answers with one picture, with a cache lifetime. A name the
+// listing does not hold is answered without a call to the source.
 func (h *handler) picture(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if !Valid(name) {
+		notFound(w)
+		return
+	}
+	entries, err := h.cache.get(r.Context())
+	if err != nil {
+		h.fail(r.Context(), w, "list preset logos", err)
+		return
+	}
+	if !has(entries, name) {
 		notFound(w)
 		return
 	}

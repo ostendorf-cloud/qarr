@@ -29,11 +29,51 @@ type fakeSource struct {
 	// body, when set, replaces the content as the body Open returns.
 	body func() io.Reader
 
-	mu     sync.Mutex
-	opened []string
+	// hold, when set, holds the List call numbered holdCall (1 is the first)
+	// until hold is closed. Every other call returns at once, so a call that
+	// should have waited shows up in listCalls instead of hanging the test.
+	hold     chan struct{}
+	holdCall int
+
+	mu        sync.Mutex
+	opened    []string
+	listCalls int
 }
 
-func (f *fakeSource) List(context.Context) ([]Entry, error) { return f.entries, f.listErr }
+// List returns entries, or one entry per file when entries is nil.
+func (f *fakeSource) List(ctx context.Context) ([]Entry, error) {
+	f.mu.Lock()
+	f.listCalls++
+	held := f.hold != nil && f.listCalls == f.holdCall
+	entries, err := f.entries, f.listErr
+	if entries == nil {
+		for name, content := range f.files {
+			entries = append(entries, Entry{Name: name, Size: int64(len(content))})
+		}
+	}
+	f.mu.Unlock()
+	if held {
+		select {
+		case <-f.hold:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return entries, err
+}
+
+// set replaces what List returns.
+func (f *fakeSource) set(entries []Entry, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.entries, f.listErr = entries, err
+}
+
+func (f *fakeSource) calls() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.listCalls
+}
 
 func (f *fakeSource) Open(_ context.Context, name string) (*Object, error) {
 	f.mu.Lock()
@@ -312,7 +352,10 @@ func TestHandler_PictureNotServed(t *testing.T) {
 
 func TestHandler_PictureSourceError(t *testing.T) {
 	t.Parallel()
-	src := &fakeSource{openErr: &StatusError{Op: "get", Status: 500}}
+	src := &fakeSource{
+		entries: []Entry{{Name: "a.png", Size: 1}},
+		openErr: &StatusError{Op: "get", Status: 500},
+	}
 	rec, logs := serve(t, src, http.MethodGet, "/logos/a.png")
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("status = %d, want 502", rec.Code)

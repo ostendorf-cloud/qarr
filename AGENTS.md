@@ -204,8 +204,11 @@ the `lang` of the address.
 
 - Two sources, never both: `LOGOS_DIR`, or an S3 bucket (`LOGOS_S3_*`, path style, own SigV4
   client). The region defaults to `us-east-1`. With neither, the page offers upload only.
-- Routes `/logos.json` (never cached) and `/logos/{name}` (cached one hour), on this origin and
-  never a redirect, so the canvas stays untainted.
+- Routes `/logos.json` (`no-store` for the browser) and `/logos/{name}` (cached one hour), on
+  this origin and never a redirect, so the canvas stays untainted.
+- The server keeps the listing in memory for 60 seconds (`listingTTL`), one refresh at a time,
+  and serves the stale one when a refresh fails. A picture is opened at the source only when
+  the listing holds its name.
 - Served: PNG, JPEG and SVG, a plain file name, at most 2 MiB (`logos.MaxBytes`, equal to
   `MAX_LOGO_BYTES` in `web/src/qr/logo.ts`). The page reads a preset like an uploaded file.
 - An unreadable source stops the start. After that the presets are a soft dependency: no
