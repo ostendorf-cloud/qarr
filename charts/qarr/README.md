@@ -49,8 +49,8 @@ helm pull oci://ghcr.io/ostendorf-cloud/charts/qarr --version <version>
 | `config.logos.s3.region` | `LOGOS_S3_REGION` | empty | Signing region. Empty keeps the application default `us-east-1` |
 | `config.logos.s3.prefix` | `LOGOS_S3_PREFIX` | empty | Only keys below this prefix are listed |
 | `config.logos.s3.existingSecret.name` | none | empty | Name of a `Secret` in the release namespace that holds the read-only key pair |
-| `config.logos.s3.existingSecret.accessKeyIdKey` | `LOGOS_S3_ACCESS_KEY_ID` | `access-key-id` | Key in that `Secret` holding the access key id |
-| `config.logos.s3.existingSecret.secretAccessKeyKey` | `LOGOS_S3_SECRET_ACCESS_KEY` | `secret-access-key` | Key in that `Secret` holding the secret access key |
+| `config.logos.s3.existingSecret.accessKeyIdKey` | `LOGOS_S3_ACCESS_KEY_ID_FILE` | `access-key-id` | Key in that `Secret` holding the access key id, mounted as a file |
+| `config.logos.s3.existingSecret.secretAccessKeyKey` | `LOGOS_S3_SECRET_ACCESS_KEY_FILE` | `secret-access-key` | Key in that `Secret` holding the secret access key, mounted as a file |
 
 `service.port` and `service.adminPort` must match whatever port `config.listenAddr` and
 `config.adminListenAddr` themselves encode; the probes and the container ports are derived
@@ -65,7 +65,12 @@ set, the page offers upload only. The pictures are never part of this chart or o
   mounts the volume read only at that path.
 - Bucket: set `config.logos.s3.endpoint`, `bucket` and `existingSecret.name`. The `Secret` has to
   exist already. The chart never creates it and never takes the key as a value.
-- The key reaches the container through `secretKeyRef`, so it is never written into the pod spec.
+- The key reaches the container as two files, not as environment variables. The chart mounts the
+  `Secret` read only with mode `0400` at `/var/run/secrets/qarr/logos-s3`, takes the file names
+  from `accessKeyIdKey` and `secretAccessKeyKey`, and sets `LOGOS_S3_ACCESS_KEY_ID_FILE` and
+  `LOGOS_S3_SECRET_ACCESS_KEY_FILE` to the two paths. The key is never written into the pod
+  spec and stays out of the process environment. The non root user reads the files through the
+  pod's `fsGroup`, so a `podSecurityContext` without one cannot read them.
 
 The render fails, naming the value, in these cases:
 

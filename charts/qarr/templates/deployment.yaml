@@ -30,6 +30,8 @@ spec:
   {{- $dir := $logos.directory }}
   {{- $s3 := $logos.s3 }}
   {{- $s3Set := or $s3.endpoint $s3.bucket $s3.region $s3.prefix $s3.existingSecret.name }}
+  {{- /* Where the Secret of the bucket key is mounted. */}}
+  {{- $keyDir := "/var/run/secrets/qarr/logos-s3" }}
   {{- if and $dir.path $s3Set }}
   {{ fail "config.logos.directory and config.logos.s3 cannot both be set: pick one source for the preset logos." }}
   {{- end }}
@@ -131,22 +133,27 @@ spec:
             - name: LOGOS_S3_PREFIX
               value: {{ . | quote }}
             {{- end }}
-            - name: LOGOS_S3_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $s3.existingSecret.name | quote }}
-                  key: {{ $s3.existingSecret.accessKeyIdKey | quote }}
-            - name: LOGOS_S3_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ $s3.existingSecret.name | quote }}
-                  key: {{ $s3.existingSecret.secretAccessKeyKey | quote }}
+            {{- /*
+            The key pair is read from files, never set as environment
+            variables, so it stays out of the process environment.
+            */}}
+            - name: LOGOS_S3_ACCESS_KEY_ID_FILE
+              value: {{ printf "%s/access-key-id" $keyDir | quote }}
+            - name: LOGOS_S3_SECRET_ACCESS_KEY_FILE
+              value: {{ printf "%s/secret-access-key" $keyDir | quote }}
             {{- end }}
-          {{- with $dir.path }}
+          {{- if or $dir.path $s3Set }}
           volumeMounts:
+            {{- with $dir.path }}
             - name: logos
               mountPath: {{ . | quote }}
               readOnly: true
+            {{- end }}
+            {{- if $s3Set }}
+            - name: logos-s3-key
+              mountPath: {{ $keyDir | quote }}
+              readOnly: true
+            {{- end }}
           {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
@@ -173,10 +180,24 @@ spec:
             failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-      {{- if $dir.path }}
+      {{- if or $dir.path $s3Set }}
       volumes:
+        {{- if $dir.path }}
         - name: logos
           {{- toYaml $dir.volume | nindent 10 }}
+        {{- end }}
+        {{- if $s3Set }}
+        - name: logos-s3-key
+          secret:
+            secretName: {{ $s3.existingSecret.name | quote }}
+            {{- /* 256 is 0400 in octal, written in decimal so no YAML version reads it as 400. */}}
+            defaultMode: 256
+            items:
+              - key: {{ $s3.existingSecret.accessKeyIdKey | quote }}
+                path: access-key-id
+              - key: {{ $s3.existingSecret.secretAccessKeyKey | quote }}
+                path: secret-access-key
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

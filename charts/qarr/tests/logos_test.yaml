@@ -7,6 +7,11 @@ tests:
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
+            name: LOGOS_S3_ACCESS_KEY_ID_FILE
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
             name: LOGOS_DIR
           any: true
       - notContains:
@@ -109,21 +114,44 @@ tests:
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LOGOS_S3_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: qarr-logos-key
-                key: access-key-id
+            name: LOGOS_S3_ACCESS_KEY_ID_FILE
+            value: /var/run/secrets/qarr/logos-s3/access-key-id
       - contains:
           path: spec.template.spec.containers[0].env
           content:
-            name: LOGOS_S3_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: qarr-logos-key
-                key: secret-access-key
-      - notExists:
+            name: LOGOS_S3_SECRET_ACCESS_KEY_FILE
+            value: /var/run/secrets/qarr/logos-s3/secret-access-key
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: logos-s3-key
+              mountPath: /var/run/secrets/qarr/logos-s3
+              readOnly: true
+      - equal:
           path: spec.template.spec.volumes
+          value:
+            - name: logos-s3-key
+              secret:
+                secretName: qarr-logos-key
+                defaultMode: 256  # 0400
+                items:
+                  - key: access-key-id
+                    path: access-key-id
+                  - key: secret-access-key
+                    path: secret-access-key
+      # The key never reaches the process environment.
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ACCESS_KEY_ID
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_SECRET_ACCESS_KEY
+          any: true
+      - notMatchRegexRaw:
+          pattern: secretKeyRef
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
@@ -142,22 +170,15 @@ tests:
               accessKeyIdKey: id
               secretAccessKeyKey: secret
     asserts:
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: LOGOS_S3_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: qarr-logos-key
-                key: id
-      - contains:
-          path: spec.template.spec.containers[0].env
-          content:
-            name: LOGOS_S3_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: qarr-logos-key
-                key: secret
+      - equal:
+          path: spec.template.spec.volumes[0].secret.items
+          value:
+            - key: id
+              path: access-key-id
+            - key: secret
+              path: secret-access-key
+      - notMatchRegexRaw:
+          pattern: secretKeyRef
       - notContains:
           path: spec.template.spec.containers[0].env
           content:
