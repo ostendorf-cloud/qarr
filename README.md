@@ -48,7 +48,8 @@ and metrics on a second, administrative listener, never on the public one.
 - One source at most. A directory and any `LOGOS_S3_*` setting together stop the start.
 - A configured source that cannot be read stops the start with one error.
 - The server lists the pictures at `/logos.json` and serves each one at `/logos/<name>` on its own
-  origin, never by a redirect. The list is never cached, a picture is cached for an hour.
+  origin, never by a redirect. The server keeps the list for 60 seconds, so a picture added to
+  the source shows up within a minute. A browser keeps a picture for an hour.
 - Served: PNG, JPEG and SVG files of at most 2 MiB, with a plain file name, at the top level of
   the source.
 - Prefer the `_FILE` variables for the key pair, so the key stays out of the process environment.
