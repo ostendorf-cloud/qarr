@@ -4,7 +4,7 @@
   "ignores": [
     "**/node_modules/**",
     "**/CHANGELOG.md",
-    "CLAUDE.md",
+    "**/CLAUDE.md",
     ".task/**"
   ],
   "config": {
