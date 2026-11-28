@@ -16,6 +16,10 @@
   --color-border: light-dark(#93a0b3, #273243);
   --color-border-strong: light-dark(#627188, #58677e);
 
+  --color-header-bg: var(--color-surface);
+  --color-header-border: var(--color-border);
+  --header-backdrop: none;
+
   --color-text: light-dark(#324055, #8a9bb3);
   --color-text-muted: light-dark(#425167, #7a8ba2);
   --color-text-faint: light-dark(#4b5a70, #708097);
