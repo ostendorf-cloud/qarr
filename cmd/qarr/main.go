@@ -20,6 +20,7 @@ import (
 	"github.com/ostendorf-cloud/govue/httpserver"
 	"github.com/ostendorf-cloud/govue/metrics"
 	"github.com/ostendorf-cloud/qarr/internal/config"
+	"github.com/ostendorf-cloud/qarr/internal/logos"
 	"github.com/ostendorf-cloud/qarr/internal/webapp"
 )
 
@@ -47,8 +48,10 @@ func run() error {
 		return fmt.Errorf("qarr: %w", err)
 	}
 
-	// No check is registered yet: there is no dependency to check. A real
-	// one is added once the bucket client exists, see AGENTS.md.
+	// No check is registered: the preset logos are a soft dependency. A page
+	// without them still encodes, draws and takes an uploaded logo, so a
+	// bucket outage must not take the pod out of rotation. A source that is
+	// unreadable at startup stops the server below instead.
 	healthRegistry := health.New()
 	metricsRegistry := metrics.NewRegistry()
 
@@ -64,14 +67,21 @@ func run() error {
 		logger.Info("page view counting is off: UMAMI_URL and UMAMI_WEBSITE_ID are not set")
 	}
 
-	handler, err := webapp.Handler(dist, cfg.SiteURL, logger, views)
+	// The read of the source needs the signal context too, so a SIGTERM
+	// during a slow bucket does not wait for the startup timeout.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	presets, err := logos.Open(ctx, cfg.Logos, logger)
+	if err != nil {
+		return fmt.Errorf("qarr: %w", err)
+	}
+
+	handler, err := webapp.Handler(dist, cfg.SiteURL, logger, views, presets)
 	if err != nil {
 		return fmt.Errorf("qarr: %w", err)
 	}
 	adminHandler := webapp.AdminHandler(healthRegistry, metricsRegistry, logger)
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	runErr := httpserver.RunAdmin(ctx, httpserver.Config{
 		Addr:    cfg.Addr,

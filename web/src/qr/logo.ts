@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Turning a picture someone chose on their own device into the pixels the
- * renderer draws from. A preset logo served from a bucket is a later issue;
- * this is upload only.
+ * Turning a picture into the pixels the renderer draws from. It is either one
+ * someone chose on their own device or a preset the page fetched from its own
+ * origin (presets/presets.ts, which hands this module a File like any other).
  *
  * A canvas is the only way a browser exposes the bytes of an image, so this
  * is the one place in the pipeline that needs a DOM. Everything downstream
- * works on the buffer, and nothing here uploads the picture anywhere: it
- * stays a local file read into memory.
+ * works on the buffer, and nothing here makes a request or uploads the
+ * picture anywhere: it stays a file read into memory.
  */
 
 import type { Logo } from './style'

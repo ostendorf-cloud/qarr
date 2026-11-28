@@ -22,6 +22,7 @@ import (
 	"github.com/ostendorf-cloud/govue/metrics"
 	"github.com/ostendorf-cloud/govue/middleware"
 	"github.com/ostendorf-cloud/qarr/internal/config"
+	"github.com/ostendorf-cloud/qarr/internal/logos"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -47,7 +48,17 @@ import (
 // reported as the pattern of the page, such as "/de/" or "/en/privacy", and
 // nothing else: the path and the query of the request never leave the
 // process. A nil views counts nothing.
-func Handler(dist fs.FS, siteURL *url.URL, logger *slog.Logger, views *analytics.Client) (http.Handler, error) {
+//
+// presets is where the preset logos come from, see internal/logos. Its two
+// routes, /logos.json and /logos/{name}, answer on this origin and never
+// redirect, which keeps the canvas that draws a preset untainted. They are
+// not pages: the counter reports an HTML 200 only, and these answer JSON and
+// images. A nil presets is a deployment without presets, whose listing is
+// empty.
+func Handler(dist fs.FS, siteURL *url.URL, logger *slog.Logger, views *analytics.Client, presets logos.Source) (http.Handler, error) {
+	if presets == nil {
+		presets = logos.Empty{}
+	}
 	s, err := loadSite(dist, siteURL)
 	if err != nil {
 		return nil, err
@@ -75,6 +86,7 @@ func Handler(dist fs.FS, siteURL *url.URL, logger *slog.Logger, views *analytics
 	if err := language.HandleLegal(mux, language.LegalConfig{Config: language.Config{Languages: languages}}, nil); err != nil {
 		return nil, fmt.Errorf("webapp: %w", err)
 	}
+	logos.Register(mux, presets, logger)
 	mux.Handle("/", noDirectoryListing(http.FileServerFS(dist)))
 
 	chain := []middleware.Middleware{

@@ -84,7 +84,7 @@ func countingHandlerWith(t *testing.T, fake *fakeUmami, trusted []netip.Prefix) 
 
 	dist := siteFS()
 	dist["app.js"] = &fstest.MapFile{Data: []byte("console.log(1)")}
-	h, err := webapp.Handler(dist, siteURL, testLogger(), views)
+	h, err := webapp.Handler(dist, siteURL, testLogger(), views, nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestHandler_CountingOffCountsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("analytics.New: %v", err)
 	}
-	h, err := webapp.Handler(siteFS(), &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), views)
+	h, err := webapp.Handler(siteFS(), &url.URL{Scheme: "https", Host: "qarr.test"}, testLogger(), views, nil)
 	if err != nil {
 		t.Fatalf("Handler: %v", err)
 	}

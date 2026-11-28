@@ -5,6 +5,7 @@
     "**/node_modules/**",
     "**/CHANGELOG.md",
     "CLAUDE.md",
+    "internal/logos/CLAUDE.md",
     ".task/**"
   ],
   "config": {

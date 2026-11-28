@@ -144,11 +144,9 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-# Plain, non-secret configuration. This milestone has no secret-shaped
-# setting at all (no API key, no bucket credential yet, see the root
-# README.md's Configuration table and AGENTS.md), so there is no
-# existingSecret block here; one is added once a later milestone introduces
-# its first secret.
+# Plain, non-secret configuration. The one secret-shaped setting, the bucket
+# key of the preset logos, is never a value here: config.logos.s3.existingSecret
+# names a Secret that already exists in the release's namespace.
 config:
   listenAddr: ":8080"
   # govue's admin listener (ADMIN_ADDR): health, readiness and metrics,
@@ -173,3 +171,35 @@ config:
   umami:
     url: ""
     websiteId: ""
+  # Preset logos, served by qarr under its own origin so the canvas that draws
+  # one stays untainted. Neither source is required: with none set the page
+  # offers upload only. A directory and a bucket cannot both be set, the
+  # render fails naming it.
+  logos:
+    # A directory of pictures. path is where it is mounted in the container
+    # (LOGOS_DIR) and volume is the volume source mounted there, read only,
+    # for example {persistentVolumeClaim: {claimName: logos}}.
+    directory:
+      path: ""
+      volume: {}
+    # An S3 compatible bucket, read with a read-only key. Path style
+    # addressing, so a MinIO or Garage endpoint works as well as AWS.
+    s3:
+      # Base URL of the service, for example https://s3.eu-central-1.amazonaws.com
+      endpoint: ""
+      bucket: ""
+      # The application defaults to us-east-1 when this is empty.
+      region: ""
+      # Only keys below this prefix are listed, for example brand/
+      prefix: ""
+      # A Secret in this namespace holding the key pair. The chart never
+      # creates it and never takes the key as a value. It is mounted read only
+      # (mode 0400) at /var/run/secrets/qarr/logos-s3, and
+      # LOGOS_S3_ACCESS_KEY_ID_FILE and LOGOS_S3_SECRET_ACCESS_KEY_FILE point
+      # at the two files, so the key never enters the process environment.
+      # accessKeyIdKey and secretAccessKeyKey are the keys of the Secret that
+      # hold each half. The pod's fsGroup lets the non root user read them.
+      existingSecret:
+        name: ""
+        accessKeyIdKey: access-key-id
+        secretAccessKeyKey: secret-access-key

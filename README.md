@@ -33,6 +33,26 @@ and metrics on a second, administrative listener, never on the public one.
 | `SITE_URL` | Public origin without path: canonical and hreflang links, sitemap and the Umami hostname (its bare host) | `https://qarr.de` |
 | `TRUSTED_PROXIES` | Comma separated CIDRs of the proxies in front of qarr; without them, behind a proxy, no view is counted | unset |
 | `UMAMI_TIMEOUT`, `UMAMI_QUEUE_SIZE` | Optional govue settings: post timeout and queue size | `5s`, `256` |
+| `LOGOS_DIR` | Directory of preset logo pictures. Not together with a bucket | unset |
+| `LOGOS_S3_ENDPOINT` | Base URL of the S3 compatible service. Required with a bucket | unset |
+| `LOGOS_S3_BUCKET` | Bucket of preset logo pictures. Setting it selects the bucket source | unset |
+| `LOGOS_S3_REGION` | Signing region | `us-east-1` |
+| `LOGOS_S3_PREFIX` | Only keys below this prefix are listed | unset |
+| `LOGOS_S3_ACCESS_KEY_ID`, `LOGOS_S3_ACCESS_KEY_ID_FILE` | Read-only access key id, or the path of a file holding it. Required with a bucket | unset |
+| `LOGOS_S3_SECRET_ACCESS_KEY`, `LOGOS_S3_SECRET_ACCESS_KEY_FILE` | Read-only secret access key, or the path of a file holding it. Required with a bucket | unset |
+
+## Preset logos
+
+- With neither `LOGOS_DIR` nor a bucket set, the page offers upload only and the server says so
+  once at startup.
+- One source at most. A directory and any `LOGOS_S3_*` setting together stop the start.
+- A configured source that cannot be read stops the start with one error.
+- The server lists the pictures at `/logos.json` and serves each one at `/logos/<name>` on its own
+  origin, never by a redirect. The server keeps the list for 60 seconds, so a picture added to
+  the source shows up within a minute. A browser keeps a picture for an hour.
+- Served: PNG, JPEG and SVG files of at most 2 MiB, with a plain file name, at the top level of
+  the source.
+- Prefer the `_FILE` variables for the key pair, so the key stays out of the process environment.
 
 ## Privacy and page view counting
 
@@ -44,6 +64,8 @@ the start.
   never sends. It does stay in the browser, including its history. The guided forms (WiFi,
   contact, appointment, telephone number, SEPA transfer) work the same way: their entries are
   put together in the browser and live in that fragment.
+- With preset logos on, the page asks its own origin for the list and for a preset you pick.
+  Neither request carries what you typed. A logo you upload stays in the browser.
 - With counting on, the server reports one page view to Umami after it served the page.
   Counting needs no script in the browser, sets no cookie and stores nothing on the device.
 - Reported: the page as the route pattern (`/de/`, `/en/`, `/de/imprint` and so on), never the
@@ -51,7 +73,8 @@ the start.
   and the client address shortened to its first three bytes (IPv4) or six (IPv6). Umami derives
   country, region and city from the shortened address.
 - Not counted: a visitor who sends Do Not Track or Global Privacy Control, prefetch, assets,
-  health and metrics routes, and anything that is not a successful HTML page.
+  preset logo requests, health and metrics routes, and anything that is not a successful HTML
+  page.
 - Who runs the Umami instance, how long it keeps the data and the legal basis are the operator's
   statements, not this repository's. The page states what the software does and no more.
 - The text lives in the privacy page, `web/src/pages/PrivacyPage.vue`, in German and English.

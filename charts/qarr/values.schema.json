@@ -102,6 +102,46 @@
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})?$"
             }
           }
+        },
+        "logos": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "directory": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^(/[^\\s]*)?$",
+                  "description": "Absolute path the volume is mounted at (LOGOS_DIR). Empty means no directory source."
+                },
+                "volume": {
+                  "type": "object",
+                  "description": "A Kubernetes volume source, mounted read only at path."
+                }
+              }
+            },
+            "s3": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "endpoint": { "type": "string", "pattern": "^(https?://[^/@?# ]+(/[^?# ]*)?)?$" },
+                "bucket": { "type": "string", "pattern": "^[A-Za-z0-9.\\-_]*$" },
+                "region": { "type": "string", "pattern": "^[A-Za-z0-9\\-_]*$" },
+                "prefix": { "type": "string" },
+                "existingSecret": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "accessKeyIdKey": { "type": "string", "minLength": 1 },
+                    "secretAccessKeyKey": { "type": "string", "minLength": 1 }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }

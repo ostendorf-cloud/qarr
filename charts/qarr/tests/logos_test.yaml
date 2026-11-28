@@ -1,0 +1,305 @@
+suite: preset logo source
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: sets no logo variable, volume or mount by default
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ACCESS_KEY_ID_FILE
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_DIR
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_BUCKET
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ACCESS_KEY_ID
+          any: true
+      - notExists:
+          path: spec.template.spec.volumes
+      - notExists:
+          path: spec.template.spec.containers[0].volumeMounts
+
+  - it: mounts a directory read only and points LOGOS_DIR at it
+    set:
+      config:
+        logos:
+          directory:
+            path: /logos
+            volume:
+              persistentVolumeClaim:
+                claimName: qarr-logos
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_DIR
+            value: /logos
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: logos
+              mountPath: /logos
+              readOnly: true
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: logos
+              persistentVolumeClaim:
+                claimName: qarr-logos
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_BUCKET
+          any: true
+
+  - it: replaces the default empty volume instead of merging into it
+    set:
+      config:
+        logos:
+          directory:
+            path: /logos
+            volume:
+              configMap:
+                name: brand-logos
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0]
+          value:
+            name: logos
+            configMap:
+              name: brand-logos
+
+  - it: wires a bucket with the key pair read from an existing Secret
+    set:
+      config:
+        logos:
+          s3:
+            endpoint: https://s3.example.com
+            bucket: brand
+            region: eu-central-1
+            prefix: logos/
+            existingSecret:
+              name: qarr-logos-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ENDPOINT
+            value: https://s3.example.com
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_BUCKET
+            value: brand
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_REGION
+            value: eu-central-1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_PREFIX
+            value: logos/
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ACCESS_KEY_ID_FILE
+            value: /var/run/secrets/qarr/logos-s3/access-key-id
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_SECRET_ACCESS_KEY_FILE
+            value: /var/run/secrets/qarr/logos-s3/secret-access-key
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: logos-s3-key
+              mountPath: /var/run/secrets/qarr/logos-s3
+              readOnly: true
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: logos-s3-key
+              secret:
+                secretName: qarr-logos-key
+                defaultMode: 256  # 0400
+                items:
+                  - key: access-key-id
+                    path: access-key-id
+                  - key: secret-access-key
+                    path: secret-access-key
+      # The key never reaches the process environment.
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_ACCESS_KEY_ID
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_SECRET_ACCESS_KEY
+          any: true
+      - notMatchRegexRaw:
+          pattern: secretKeyRef
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_DIR
+          any: true
+
+  - it: takes the Secret key names from the values and leaves region and prefix out when empty
+    set:
+      config:
+        logos:
+          s3:
+            endpoint: https://s3.example.com
+            bucket: brand
+            existingSecret:
+              name: qarr-logos-key
+              accessKeyIdKey: id
+              secretAccessKeyKey: secret
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0].secret.items
+          value:
+            - key: id
+              path: access-key-id
+            - key: secret
+              path: secret-access-key
+      - notMatchRegexRaw:
+          pattern: secretKeyRef
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_REGION
+          any: true
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOGOS_S3_PREFIX
+          any: true
+
+  - it: fails when a directory and a bucket are both set
+    set:
+      config:
+        logos:
+          directory:
+            path: /logos
+            volume:
+              emptyDir: {}
+          s3:
+            endpoint: https://s3.example.com
+            bucket: brand
+            existingSecret:
+              name: qarr-logos-key
+    asserts:
+      - failedTemplate:
+          errorMessage: >-
+            config.logos.directory and config.logos.s3 cannot both be set: pick one source for
+            the preset logos.
+
+  - it: fails when a directory path has no volume
+    set:
+      config:
+        logos:
+          directory:
+            path: /logos
+    asserts:
+      - failedTemplate:
+          errorMessage: >-
+            config.logos.directory.path needs config.logos.directory.volume: a volume source to
+            mount at that path.
+
+  - it: fails when a directory volume has no path
+    set:
+      config:
+        logos:
+          directory:
+            volume:
+              emptyDir: {}
+    asserts:
+      - failedTemplate:
+          errorMessage: >-
+            config.logos.directory.volume needs config.logos.directory.path: the directory to
+            mount it at.
+
+  - it: fails when a bucket has no endpoint
+    set:
+      config:
+        logos:
+          s3:
+            bucket: brand
+            existingSecret:
+              name: qarr-logos-key
+    asserts:
+      - failedTemplate:
+          errorMessage: config.logos.s3.endpoint is required when a bucket is configured.
+
+  - it: fails when a bucket setting is given without a bucket name
+    set:
+      config:
+        logos:
+          s3:
+            endpoint: https://s3.example.com
+            prefix: logos/
+            existingSecret:
+              name: qarr-logos-key
+    asserts:
+      - failedTemplate:
+          errorMessage: config.logos.s3.bucket is required when a bucket is configured.
+
+  - it: fails when a bucket has no Secret for its key
+    set:
+      config:
+        logos:
+          s3:
+            endpoint: https://s3.example.com
+            bucket: brand
+    asserts:
+      - failedTemplate:
+          errorMessage: >-
+            config.logos.s3.existingSecret.name is required when a bucket is configured: the
+            Secret holding the read-only key.
+
+  - it: rejects an endpoint that is not an http or https address
+    set:
+      config:
+        logos:
+          s3:
+            endpoint: s3.example.com
+            bucket: brand
+            existingSecret:
+              name: qarr-logos-key
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects a relative directory path
+    set:
+      config:
+        logos:
+          directory:
+            path: logos
+            volume:
+              emptyDir: {}
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects a key typed in as a value
+    set:
+      config:
+        logos:
+          s3:
+            accessKeyId: AKIAEXAMPLE
+    asserts:
+      - failedTemplate: {}

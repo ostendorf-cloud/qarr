@@ -15,8 +15,8 @@ Installs [qarr](https://github.com/ostendorf-cloud/qarr) on a Kubernetes cluster
 helm install qarr charts/qarr
 ```
 
-This chart has no secret-shaped setting yet, so it needs no `existingSecret` value to
-install. See "Configuration" below for what it does accept.
+A default install needs no `Secret`. The one secret-shaped setting is the read-only key of a
+preset logo bucket, and the bucket is optional. See "Preset logos" below.
 
 This chart is also published as an OCI artifact, at `oci://ghcr.io/ostendorf-cloud/charts/qarr`,
 versioned in lock-step with every release:
@@ -42,10 +42,44 @@ helm pull oci://ghcr.io/ostendorf-cloud/charts/qarr --version <version>
 | `config.umami.websiteId` | `UMAMI_WEBSITE_ID` | empty | Umami website id, a UUID. Not a secret |
 | `config.siteUrl` | `SITE_URL` | empty | Public origin without path; canonical links, sitemap and the Umami hostname come from it. Empty keeps `https://qarr.de` |
 | `config.trustedProxies` | `TRUSTED_PROXIES` | empty | CIDRs of the proxies in front of qarr; set it behind an ingress or no view is counted |
+| `config.logos.directory.path` | `LOGOS_DIR` | empty | Absolute path the logo directory is mounted at, read only. Empty means no directory source |
+| `config.logos.directory.volume` | none | `{}` | A Kubernetes volume source mounted at `path`, for example `{persistentVolumeClaim: {claimName: logos}}` |
+| `config.logos.s3.endpoint` | `LOGOS_S3_ENDPOINT` | empty | Base URL of the S3 compatible service. Path style addressing |
+| `config.logos.s3.bucket` | `LOGOS_S3_BUCKET` | empty | Bucket name |
+| `config.logos.s3.region` | `LOGOS_S3_REGION` | empty | Signing region. Empty keeps the application default `us-east-1` |
+| `config.logos.s3.prefix` | `LOGOS_S3_PREFIX` | empty | Only keys below this prefix are listed |
+| `config.logos.s3.existingSecret.name` | none | empty | Name of a `Secret` in the release namespace that holds the read-only key pair |
+| `config.logos.s3.existingSecret.accessKeyIdKey` | `LOGOS_S3_ACCESS_KEY_ID_FILE` | `access-key-id` | Key in that `Secret` holding the access key id, mounted as a file |
+| `config.logos.s3.existingSecret.secretAccessKeyKey` | `LOGOS_S3_SECRET_ACCESS_KEY_FILE` | `secret-access-key` | Key in that `Secret` holding the secret access key, mounted as a file |
 
 `service.port` and `service.adminPort` must match whatever port `config.listenAddr` and
 `config.adminListenAddr` themselves encode; the probes and the container ports are derived
 from `service.*`, not from `config.*`, so the two are kept in step by hand.
+
+## Preset logos
+
+Presets come from a directory or from an S3 compatible bucket. Neither is required: with none
+set, the page offers upload only. The pictures are never part of this chart or of the image.
+
+- Directory: set `config.logos.directory.path` and `config.logos.directory.volume`. The chart
+  mounts the volume read only at that path.
+- Bucket: set `config.logos.s3.endpoint`, `bucket` and `existingSecret.name`. The `Secret` has to
+  exist already. The chart never creates it and never takes the key as a value.
+- The key reaches the container as two files, not as environment variables. The chart mounts the
+  `Secret` read only with mode `0400` at `/var/run/secrets/qarr/logos-s3`, takes the file names
+  from `accessKeyIdKey` and `secretAccessKeyKey`, and sets `LOGOS_S3_ACCESS_KEY_ID_FILE` and
+  `LOGOS_S3_SECRET_ACCESS_KEY_FILE` to the two paths. The key is never written into the pod
+  spec and stays out of the process environment. The non root user reads the files through the
+  pod's `fsGroup`, so a `podSecurityContext` without one cannot read them.
+
+The render fails, naming the value, in these cases:
+
+- A directory and a bucket are both set.
+- `directory.path` is set without `directory.volume`, or the other way round.
+- Any bucket value is set and `s3.endpoint`, `s3.bucket` or `s3.existingSecret.name` is empty.
+
+A source that is set but unreadable stops the pod at startup with one error. After startup the
+presets are a soft dependency: readiness does not check them and upload keeps working.
 
 ## External routing
 
@@ -76,5 +110,7 @@ including the must-fail combinations.
 helm uninstall qarr
 ```
 
-Removes every object this chart created. There is no `Secret`, `PersistentVolumeClaim` or other
-stateful object left behind: qarr keeps no server-side state in this milestone.
+Removes every object this chart created. The chart creates no `Secret`, `PersistentVolumeClaim`
+or other stateful object, and qarr keeps no server-side state. A `Secret` named by
+`config.logos.s3.existingSecret` and a claim behind `config.logos.directory.volume` belong to
+you and stay.
